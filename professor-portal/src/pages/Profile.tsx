@@ -188,15 +188,14 @@ export default function Profile() {
             const response = await fetch(`${API_BASE}/timetable/assigned-classes?user_id=${user.id}`);
             const data = await response.json();
 
-            if (data.success) {
-                const classes = data.data;
-                setStats({
-                    total_classes: classes.length,
-                    total_students: classes.reduce((sum: number, c: any) => sum + (c.student_count || 0), 0),
-                    subjects_count: new Set(classes.map((c: any) => c.subject_id)).size,
-                    attendance_sessions: 0, // Would need separate API
-                });
-            }
+            // API returns array directly
+            const classes = Array.isArray(data) ? data : [];
+            setStats({
+                total_classes: classes.length,
+                total_students: classes.reduce((sum: number, c: any) => sum + (c.student_count || 0), 0),
+                subjects_count: new Set(classes.map((c: any) => c.subject_id)).size,
+                attendance_sessions: 0, // Would need separate API
+            });
         } catch (err) {
             console.error('Error fetching profile:', err);
         } finally {

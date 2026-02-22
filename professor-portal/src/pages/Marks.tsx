@@ -66,9 +66,8 @@ function ClassSelection({
                 `${API_BASE}/timetable/assigned-classes?user_id=${user.id}`
             );
             const data = await response.json();
-            if (data.success) {
-                setClasses(data.data);
-            }
+            // API returns array directly, not wrapped in success object
+            setClasses(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error('Error fetching assigned classes:', err);
         } finally {

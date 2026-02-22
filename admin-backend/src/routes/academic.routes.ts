@@ -659,8 +659,8 @@ router.get('/classes', async (req: Request, res: Response): Promise<void> => {
             .from('classes')
             .select(`
         *,
-        batches(id, batch_name),
-        branches(id, branch_name, branch_code),
+        batches(id, batch_name, year),
+        branches(id, branch_name, branch_code, courses(id, course_name, course_code)),
         sections(id, section_name)
       `)
             .order('class_label');

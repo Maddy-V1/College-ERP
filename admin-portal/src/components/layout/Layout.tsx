@@ -32,7 +32,7 @@ const navItems = [
     { path: '/courses', icon: BookOpen, label: 'Courses' },
     { path: '/batches', icon: Layers, label: 'Batches' },
     { path: '/subjects', icon: BookText, label: 'Subjects' },
-    { path: '/timetables', icon: Calendar, label: 'Timetables' },
+    { path: '/notifications', icon: Calendar, label: 'Send Notification' },
     { path: '/settings', icon: Settings, label: 'Settings' },
 ];
 

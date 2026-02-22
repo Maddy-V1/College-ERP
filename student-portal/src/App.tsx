@@ -6,6 +6,7 @@ import Attendance from './pages/Attendance';
 import Marks from './pages/Marks';
 import Groups from './pages/Groups';
 import Profile from './pages/Profile';
+import Notifications from './pages/Notifications';
 
 function App() {
     return (
@@ -21,6 +22,7 @@ function App() {
                     <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
                     <Route path="/marks" element={<ProtectedRoute><Marks /></ProtectedRoute>} />
                     <Route path="/groups" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
+                    <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
                     <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
                     {/* Catch all */}
@@ -35,9 +37,10 @@ function App() {
 // Protected Route Wrapper
 // ============================================
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const { isAuthenticated, isLoading } = useAuth();
+    const { isAuthenticated, isLoading, profileLoading } = useAuth();
     const location = useLocation();
 
+    // Show loading only during initial auth check
     if (isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-bg-primary">
@@ -46,10 +49,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         );
     }
 
+    // Redirect to login if not authenticated
     if (!isAuthenticated) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
+    // Show content even if profile is still loading (non-blocking)
     return <>{children}</>;
 }
 

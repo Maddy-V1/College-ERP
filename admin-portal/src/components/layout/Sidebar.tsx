@@ -4,13 +4,13 @@ import {
     Users,
     GraduationCap,
     Building2,
-    CalendarDays,
     Settings,
     ChevronLeft,
     ChevronRight,
     BookOpen,
     Layers,
     BookText,
+    Bell,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -26,7 +26,7 @@ const navItems = [
     { icon: Layers, label: 'Batches', path: '/batches' },
     { icon: Building2, label: 'Classes', path: '/classes' },
     { icon: BookText, label: 'Subjects', path: '/subjects' },
-    { icon: CalendarDays, label: 'Timetables', path: '/timetables' },
+    { icon: Bell, label: 'Send Notification', path: '/notifications' },
     { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 

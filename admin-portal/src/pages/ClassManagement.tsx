@@ -977,83 +977,337 @@ function SubjectsTab({ classId, semester }: { classId: string; semester: number 
     );
 }
 
-// Timetable Tab
+// Timetable Tab with Drag & Drop
 function TimetableTab({ classId }: { classId: string }) {
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const times = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
+    const API_BASE = import.meta.env.VITE_ADMIN_API_URL || 'http://localhost:4003/api/admin/v1';
+    
+    const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const DAY_LABELS: Record<string, string> = {
+        monday: 'Monday',
+        tuesday: 'Tuesday',
+        wednesday: 'Wednesday',
+        thursday: 'Thursday',
+        friday: 'Friday',
+        saturday: 'Saturday'
+    };
 
-    const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
+    const PERIODS = [
+        { number: 1, start: '09:00', end: '10:00' },
+        { number: 2, start: '10:00', end: '11:00' },
+        { number: 3, start: '11:00', end: '12:00' },
+        { number: 4, start: '12:00', end: '13:00' },
+        { number: 'lunch', start: '13:00', end: '13:30', isBreak: true },
+        { number: 5, start: '13:30', end: '14:30' },
+        { number: 6, start: '14:30', end: '15:30' },
+        { number: 7, start: '15:30', end: '16:30' },
+        { number: 8, start: '16:30', end: '17:30' },
+    ];
+
+    interface ClassSubject {
+        id: string;
+        subject_id: string;
+        subjects: { name: string; code: string };
+        professor_profiles: { id: string; users: { full_name: string } };
+    }
+
+    interface TimetableSlot {
+        id?: string;
+        class_subject_id: string;
+        day_of_week: string;
+        period_number: number;
+        start_time: string;
+        end_time: string;
+        room_number?: string;
+        slot_type: string;
+        class_subjects?: ClassSubject;
+    }
+
+    const [classSubjects, setClassSubjects] = useState<ClassSubject[]>([]);
+    const [timetableSlots, setTimetableSlots] = useState<TimetableSlot[]>([]);
+    const [draggedSubject, setDraggedSubject] = useState<ClassSubject | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     useEffect(() => {
-        const fetchTimetable = async () => {
-            try {
-                // TODO: Implement timetable API
-                // const response = await fetch(`http://localhost:4003/api/admin/v1/academic/classes/${classId}/timetable`);
-                setTimetable([]);
-            } catch (error) {
-                console.error('Error fetching timetable:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchTimetable();
+        if (classId) {
+            fetchClassSubjects();
+            fetchTimetable();
+        }
     }, [classId]);
 
-    const getSlot = (day: number, time: string) => {
-        return timetable.find((t) => t.day_of_week === day && t.start_time === time);
+    const fetchClassSubjects = async () => {
+        try {
+            const res = await fetch(`${API_BASE}/timetables/class/${classId}/subjects`);
+            if (!res.ok) {
+                console.error('Failed to fetch class subjects:', res.status, res.statusText);
+                setClassSubjects([]);
+                return;
+            }
+            const data = await res.json();
+            console.log('Fetched class subjects:', data);
+            setClassSubjects(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error('Error fetching class subjects:', error);
+            setClassSubjects([]);
+        }
+    };
+
+    const fetchTimetable = async () => {
+        try {
+            setLoading(true);
+            const res = await fetch(`${API_BASE}/timetables/class/${classId}`);
+            if (!res.ok) {
+                console.error('Failed to fetch timetable:', res.status, res.statusText);
+                setTimetableSlots([]);
+                return;
+            }
+            const data = await res.json();
+            console.log('Fetched timetable:', data);
+            setTimetableSlots(Array.isArray(data.slots) ? data.slots : []);
+        } catch (error) {
+            console.error('Error fetching timetable:', error);
+            setTimetableSlots([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDragStart = (subject: ClassSubject) => {
+        setDraggedSubject(subject);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+    };
+
+    const handleDrop = (day: string, period: number) => {
+        if (!draggedSubject) return;
+
+        const periodInfo = PERIODS.find(p => p.number === period);
+        if (!periodInfo) return;
+
+        const existingSlot = timetableSlots.find(
+            s => s.day_of_week === day && s.period_number === period
+        );
+
+        if (existingSlot) {
+            setTimetableSlots(prev =>
+                prev.map(s =>
+                    s.day_of_week === day && s.period_number === period
+                        ? { ...s, class_subject_id: draggedSubject.id, class_subjects: draggedSubject }
+                        : s
+                )
+            );
+        } else {
+            const newSlot: TimetableSlot = {
+                class_subject_id: draggedSubject.id,
+                day_of_week: day,
+                period_number: period,
+                start_time: periodInfo.start,
+                end_time: periodInfo.end,
+                slot_type: 'regular',
+                class_subjects: draggedSubject
+            };
+            setTimetableSlots(prev => [...prev, newSlot]);
+        }
+
+        setDraggedSubject(null);
+    };
+
+    const handleRemoveSlot = (day: string, period: number) => {
+        setTimetableSlots(prev =>
+            prev.filter(s => !(s.day_of_week === day && s.period_number === period))
+        );
+    };
+
+    const handleSaveTimetable = async () => {
+        try {
+            setIsSaving(true);
+            const res = await fetch(`${API_BASE}/timetables/class/${classId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    slots: timetableSlots.map(s => ({
+                        class_subject_id: s.class_subject_id,
+                        day_of_week: s.day_of_week,
+                        period_number: s.period_number,
+                        start_time: s.start_time,
+                        end_time: s.end_time,
+                        room_number: s.room_number,
+                        slot_type: s.slot_type
+                    })),
+                    effectiveFrom: new Date().toISOString().split('T')[0],
+                    effectiveTo: null
+                })
+            });
+
+            if (!res.ok) throw new Error('Failed to save timetable');
+
+            setMessage({ type: 'success', text: 'Timetable saved successfully!' });
+            setTimeout(() => setMessage(null), 3000);
+        } catch (error) {
+            console.error('Error saving timetable:', error);
+            setMessage({ type: 'error', text: 'Failed to save timetable' });
+            setTimeout(() => setMessage(null), 3000);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const getSlot = (day: string, period: number) => {
+        return timetableSlots.find(s => s.day_of_week === day && s.period_number === period);
     };
 
     if (loading) {
-        return <div className="h-96 bg-white/5 rounded-xl animate-pulse" />;
+        return (
+            <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-secondary" />
+            </div>
+        );
     }
 
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center">
-                <p className="text-text-secondary">Weekly class schedule</p>
-                <button className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-accent-orange to-secondary text-white font-semibold rounded-lg">
-                    <Plus className="w-4 h-4" />
-                    Add Slot
-                </button>
-            </div>
+            {message && (
+                <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}`}>
+                    {message.text}
+                </div>
+            )}
 
-            <div className="bg-gradient-to-br from-bg-secondary/95 to-bg-tertiary/95 border border-white/10 rounded-xl overflow-hidden overflow-x-auto">
-                <table className="w-full min-w-[800px]">
-                    <thead>
-                        <tr className="border-b border-white/10">
-                            <th className="p-3 text-text-secondary font-medium text-sm w-20">Time</th>
-                            {days.map((day) => (
-                                <th key={day} className="p-3 text-text-secondary font-medium text-sm">{day}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {times.map((time) => (
-                            <tr key={time} className="border-b border-white/5">
-                                <td className="p-3 text-text-muted text-sm font-mono">{time}</td>
-                                {days.map((_, dayIndex) => {
-                                    const slot = getSlot(dayIndex, time);
-                                    return (
-                                        <td key={dayIndex} className="p-2">
-                                            {slot ? (
-                                                <div className="bg-primary/10 border border-primary/30 rounded-lg p-2 text-xs">
-                                                    <p className="font-semibold text-primary">{slot.subject_code}</p>
-                                                    <p className="text-text-secondary truncate">{slot.professor_name}</p>
-                                                    <p className="text-text-muted">{slot.room_number}</p>
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                {/* Timetable Grid */}
+                <div className="lg:col-span-3">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-text-secondary">Drag subjects from the panel to create timetable</p>
+                        <button
+                            onClick={handleSaveTimetable}
+                            disabled={isSaving || timetableSlots.length === 0}
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-accent-orange to-secondary text-white font-semibold rounded-lg disabled:opacity-50"
+                        >
+                            <CheckCircle className="w-4 h-4" />
+                            {isSaving ? 'Saving...' : 'Save Timetable'}
+                        </button>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-bg-secondary/95 to-bg-tertiary/95 border border-white/10 rounded-xl overflow-x-auto">
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr>
+                                    <th className="border border-white/10 p-2 bg-bg-secondary text-text-secondary text-sm font-medium sticky left-0 z-10">
+                                        Day / Time
+                                    </th>
+                                    {PERIODS.map(period => (
+                                        <th key={period.number} className="border border-white/10 p-2 bg-bg-secondary text-text-primary text-sm font-medium min-w-[150px]">
+                                            {period.isBreak ? (
+                                                <div>
+                                                    <div className="font-semibold text-warning">Lunch Break</div>
+                                                    <div className="text-xs text-text-muted flex items-center justify-center gap-1 mt-1">
+                                                        <Clock className="w-3 h-3" />
+                                                        {period.start} - {period.end}
+                                                    </div>
                                                 </div>
                                             ) : (
-                                                <div className="h-16 border border-dashed border-white/10 rounded-lg flex items-center justify-center">
-                                                    <Plus className="w-4 h-4 text-text-muted opacity-0 hover:opacity-100" />
+                                                <div>
+                                                    <div className="font-semibold">Period {period.number}</div>
+                                                    <div className="text-xs text-text-muted flex items-center justify-center gap-1 mt-1">
+                                                        <Clock className="w-3 h-3" />
+                                                        {period.start} - {period.end}
+                                                    </div>
                                                 </div>
                                             )}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {DAYS.map(day => (
+                                    <tr key={day}>
+                                        <td className="border border-white/10 p-3 bg-bg-secondary text-center sticky left-0 z-10">
+                                            <div className="text-sm font-medium text-text-primary">{DAY_LABELS[day]}</div>
                                         </td>
-                                    );
-                                })}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                                        {PERIODS.map(period => {
+                                            if (period.isBreak) {
+                                                return (
+                                                    <td key={`${day}-${period.number}`} className="border border-white/10 p-2 bg-warning/5">
+                                                        <div className="h-20 flex items-center justify-center text-text-muted text-xs">
+                                                            🍽️ Lunch
+                                                        </div>
+                                                    </td>
+                                                );
+                                            }
+                                            
+                                            const slot = getSlot(day, period.number as number);
+                                            return (
+                                                <td
+                                                    key={`${day}-${period.number}`}
+                                                    className="border border-white/10 p-2 h-20"
+                                                    onDragOver={handleDragOver}
+                                                    onDrop={() => handleDrop(day, period.number as number)}
+                                                >
+                                                    {slot ? (
+                                                        <div className="bg-primary/10 border border-primary/30 rounded p-2 relative group h-full">
+                                                            <button
+                                                                onClick={() => handleRemoveSlot(day, period.number as number)}
+                                                                className="absolute -top-2 -right-2 w-5 h-5 bg-error text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                                            >
+                                                                <X className="w-3 h-3" />
+                                                            </button>
+                                                            <div className="text-sm font-semibold text-primary">
+                                                                {slot.class_subjects?.subjects.code}
+                                                            </div>
+                                                            <div className="text-xs text-text-primary mt-1 font-medium">
+                                                                {slot.class_subjects?.subjects.name}
+                                                            </div>
+                                                            <div className="text-xs text-text-secondary mt-1">
+                                                                👨‍🏫 {slot.class_subjects?.professor_profiles?.users?.full_name}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="h-full flex items-center justify-center text-text-muted text-xs border border-dashed border-white/10 rounded hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                                                            Drop here
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Subject Panel */}
+                <div className="lg:col-span-1">
+                    <div className="bg-gradient-to-br from-bg-secondary/95 to-bg-tertiary/95 border border-white/10 rounded-xl p-4 sticky top-6">
+                        <h3 className="text-lg font-semibold text-text-primary mb-4">Class Subjects</h3>
+                        {classSubjects.length === 0 ? (
+                            <p className="text-text-muted text-sm">No subjects assigned to this class</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {classSubjects.map(subject => (
+                                    <div
+                                        key={subject.id}
+                                        draggable
+                                        onDragStart={() => handleDragStart(subject)}
+                                        className="p-3 bg-bg-tertiary border border-white/10 rounded-lg cursor-move hover:border-primary transition-colors"
+                                    >
+                                        <div className="text-sm font-medium text-text-primary">
+                                            {subject.subjects.name}
+                                        </div>
+                                        <div className="text-xs text-text-secondary mt-1">
+                                            {subject.subjects.code}
+                                        </div>
+                                        <div className="text-xs text-text-muted mt-1">
+                                            👨‍🏫 {subject.professor_profiles?.users?.full_name || 'Not assigned'}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
     );

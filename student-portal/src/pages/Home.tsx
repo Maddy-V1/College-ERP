@@ -445,8 +445,8 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
         return today >= 1 && today <= 5 ? today : 1;
     });
 
-    // Time slots - standard hours from 9 AM to 5 PM
-    const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+    // Time slots - 9 AM to 5:30 PM with lunch break at 1:00-1:30 PM
+    const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '13:30', '14:30', '15:30', '16:30', '17:30'];
     const days = [1, 2, 3, 4, 5];
     const dayFullNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     const today = new Date().getDay() === 0 ? 7 : new Date().getDay();
@@ -473,6 +473,42 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
     }));
 
     const rowHeight = 50; // Height per hour slot
+    
+    // Calculate position considering lunch break and new time structure
+    const getClassPosition = (startTime: string) => {
+        const [hourStr, minStr] = startTime.split(':');
+        const hour = parseInt(hourStr || '9');
+        const minute = parseInt(minStr || '0');
+        const startMin = hour * 60 + minute;
+        
+        // Time slot mapping:
+        // 9:00 -> row 0
+        // 10:00 -> row 1
+        // 11:00 -> row 2
+        // 12:00 -> row 3
+        // 13:00 -> row 4 (lunch)
+        // 13:30 -> row 5 (after lunch break, half row down)
+        // 14:30 -> row 6
+        // 15:30 -> row 7
+        // 16:30 -> row 8
+        // 17:30 -> row 9
+        
+        if (hour < 13) {
+            // Before 1 PM: 9am, 10am, 11am, 12pm
+            return (hour - 9) * rowHeight;
+        } else if (hour === 13 && minute === 0) {
+            // 1:00 PM - lunch time
+            return 4 * rowHeight;
+        } else if (hour === 13 && minute === 30) {
+            // 1:30 PM - right after lunch break
+            return 4 * rowHeight + (rowHeight / 2);
+        } else {
+            // After 1:30 PM: 2:30, 3:30, 4:30, 5:30
+            // 14:30 -> 5.5 rows, 15:30 -> 6.5 rows, etc.
+            const hoursFrom9 = hour - 9;
+            return hoursFrom9 * rowHeight + (rowHeight / 2);
+        }
+    };
 
     // Get days to display
     const getDaysToShow = () => {
@@ -551,13 +587,16 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
             {/* Main Grid: Timeline + Day Columns */}
             <div className="flex">
                 {/* Time Column - using absolute positioning for proper alignment */}
-                <div className="flex-shrink-0 w-14 bg-bg-tertiary/30 border-r border-white/10 relative" style={{ height: `${timeSlots.length * rowHeight}px` }}>
+                <div className="flex-shrink-0 w-14 bg-bg-tertiary/30 border-r border-white/10 relative" style={{ height: `${(timeSlots.length - 1) * rowHeight + rowHeight / 2}px` }}>
                     {timeSlots.map((time, index) => {
                         const hour = parseInt(time.split(':')[0] || '0');
                         const minute = parseInt(time.split(':')[1] || '0');
                         const isLunch = hour === 13 && minute === 0;
                         const isLunchEnd = hour === 13 && minute === 30;
                         const isCurrentHour = currentHour === hour && (minute === 0 ? currentMinute < 30 : currentMinute >= 30);
+                        
+                        // Position: regular slots, but 1:30 PM is half slot after 1:00 PM
+                        const topPosition = index <= 4 ? index * rowHeight : (index - 1) * rowHeight + rowHeight / 2;
 
                         return (
                             <div
@@ -566,7 +605,7 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
                                     isLunchEnd ? 'text-warning/70' :
                                         isCurrentHour ? 'text-accent-teal font-bold' : 'text-text-muted'
                                     }`}
-                                style={{ top: `${index * rowHeight}px` }}
+                                style={{ top: `${topPosition}px` }}
                             >
                                 {formatTime(time)}
                             </div>
@@ -580,26 +619,29 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
                         <div
                             key={`c-${day}`}
                             className={`relative border-l border-white/5 ${day === today ? 'bg-accent-teal/5' : ''}`}
-                            style={{ height: `${timeSlots.length * rowHeight}px` }}
+                            style={{ height: `${(timeSlots.length - 1) * rowHeight + rowHeight / 2}px` }}
                         >
                             {/* Hour grid lines */}
-                            {timeSlots.map((_, i) => (
-                                <div
-                                    key={i}
-                                    className="absolute left-0 right-0 border-t border-white/8"
-                                    style={{ top: `${i * rowHeight}px` }}
-                                />
-                            ))}
+                            {timeSlots.map((_, i) => {
+                                const topPosition = i <= 4 ? i * rowHeight : (i - 1) * rowHeight + rowHeight / 2;
+                                return (
+                                    <div
+                                        key={i}
+                                        className="absolute left-0 right-0 border-t border-white/8"
+                                        style={{ top: `${topPosition}px` }}
+                                    />
+                                );
+                            })}
 
-                            {/* Lunch break indicator - 1:00-1:30 PM (first half of 1-2 PM slot) */}
+                            {/* Lunch break indicator - 1:00-1:30 PM with border */}
                             <div
-                                className="absolute left-0 right-0 bg-warning/10 flex items-center justify-center pointer-events-none"
+                                className="absolute left-0 right-0 bg-warning/10 border-t-2 border-b-2 border-warning/30 flex items-center justify-center pointer-events-none z-10"
                                 style={{
                                     top: `${4 * rowHeight}px`,
                                     height: `${rowHeight / 2}px`
                                 }}
                             >
-                                <span className="text-[9px] font-semibold text-warning/60 uppercase tracking-wider">🍽️ Lunch</span>
+                                <span className="text-[10px] font-bold text-warning uppercase tracking-wider">🍽️ Lunch Break</span>
                             </div>
 
                             {/* Current time indicator */}
@@ -617,13 +659,13 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
                                 const color = getSubjectColor(cls.subject_code);
                                 const startMin = parseInt(cls.start_time.split(':')[0] || '9') * 60 + parseInt(cls.start_time.split(':')[1] || '0');
                                 const endMin = parseInt(cls.end_time.split(':')[0] || '10') * 60 + parseInt(cls.end_time.split(':')[1] || '0');
-                                const top = ((startMin - 9 * 60) / 60) * rowHeight;
+                                const top = getClassPosition(cls.start_time);
                                 const height = ((endMin - startMin) / 60) * rowHeight;
 
                                 return (
                                     <div
                                         key={cls.id}
-                                        className="absolute left-2 right-2 rounded-xl p-2.5 overflow-hidden hover:brightness-110 hover:scale-[1.02] transition-all shadow-md cursor-pointer"
+                                        className="absolute left-2 right-2 rounded-xl p-2.5 overflow-hidden hover:brightness-110 hover:scale-[1.02] transition-all shadow-md cursor-pointer z-20"
                                         style={{
                                             top: `${top + 3}px`,
                                             height: `${Math.max(height - 6, 40)}px`,
@@ -631,24 +673,27 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
                                             borderLeft: `4px solid ${color.border}`,
                                         }}
                                     >
-                                        <p className="text-sm font-bold truncate" style={{ color: color.text }}>{cls.subject_name}</p>
+                                        <p className="text-sm font-bold truncate leading-tight" style={{ color: color.text }}>{cls.subject_name}</p>
                                         {height > 50 && (
                                             <div className="mt-1 space-y-0.5">
                                                 <p className="text-xs text-text-secondary truncate flex items-center gap-1">
-                                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                                     </svg>
-                                                    {cls.professor_name || 'TBA'}
+                                                    <span className="truncate">{cls.professor_name || 'TBA'}</span>
                                                 </p>
-                                                {cls.room_number && (
-                                                    <p className="text-xs text-text-muted truncate flex items-center gap-1">
-                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                        </svg>
-                                                        Room {cls.room_number}
-                                                    </p>
-                                                )}
+                                                <p className="text-xs text-text-muted truncate flex items-center gap-1">
+                                                    <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                    </svg>
+                                                    <span className="truncate">Room {cls.room_number || '-'}</span>
+                                                </p>
                                             </div>
+                                        )}
+                                        {height <= 50 && height > 30 && (
+                                            <p className="text-[10px] text-text-muted truncate mt-0.5">
+                                                {cls.professor_name || 'TBA'} • Room {cls.room_number || '-'}
+                                            </p>
                                         )}
                                     </div>
                                 );
@@ -744,35 +789,99 @@ export default function Home() {
         setError(null);
 
         try {
-            // Fetch today's schedule
-            const scheduleRes = await fetch(
-                `${API_BASE}/timetable/today?user_id=${user.id}&role=student`
-            );
-            const scheduleData = await scheduleRes.json();
-            if (scheduleData.success) {
-                setSchedule(scheduleData.data);
+            console.log('Fetching student profile to get class_id...');
+            
+            // First, get student profile to find their class_id
+            const profileRes = await fetch(`${API_BASE}/student/profile?user_id=${user.id}`);
+            if (!profileRes.ok) {
+                throw new Error('Failed to fetch student profile');
+            }
+            const profileData = await profileRes.json();
+            
+            if (!profileData.success || !profileData.data) {
+                throw new Error('Invalid profile response');
+            }
+            
+            const classId = profileData.data.class_id;
+            
+            if (!classId) {
+                throw new Error('Student is not assigned to a class');
             }
 
-            // Fetch weekly timetable for desktop
-            const weeklyRes = await fetch(
-                `${API_BASE}/timetable/my?user_id=${user.id}&role=student`
-            );
-            const weeklyData = await weeklyRes.json();
-            if (weeklyData.success) {
-                setWeeklyTimetable(weeklyData.data);
+            console.log('Student class_id:', classId);
+
+            // Fetch class timetable
+            const timetableRes = await fetch(`${API_BASE}/timetable/class/${classId}`);
+            if (!timetableRes.ok) {
+                throw new Error(`Failed to fetch timetable: ${timetableRes.status}`);
+            }
+            
+            const timetableData = await timetableRes.json();
+            console.log('Timetable data received:', timetableData);
+
+            // Transform the slots data to match expected format
+            const transformedData: WeeklyTimetable[] = (timetableData.slots || []).map((slot: any) => {
+                // Map day_of_week string to number (1=Monday, 5=Friday)
+                const dayMap: Record<string, number> = {
+                    'monday': 1,
+                    'tuesday': 2,
+                    'wednesday': 3,
+                    'thursday': 4,
+                    'friday': 5,
+                    'saturday': 6
+                };
+
+                return {
+                    id: slot.id,
+                    day_of_week: dayMap[slot.day_of_week?.toLowerCase()] ?? 1,
+                    start_time: slot.start_time,
+                    end_time: slot.end_time,
+                    room_number: slot.room_number || '',
+                    slot_type: slot.slot_type || 'regular',
+                    subject_name: slot.class_subjects?.subjects?.subject_name || 'Unknown Subject',
+                    subject_code: slot.class_subjects?.subjects?.subject_code || 'N/A',
+                    professor_name: slot.class_subjects?.professor_profiles?.users?.full_name || 'TBA',
+                    class_subject_id: slot.class_subject_id || slot.id
+                };
+            });
+
+            console.log('Transformed timetable:', transformedData);
+            setWeeklyTimetable(transformedData);
+
+            // Filter today's schedule
+            const today = new Date().getDay(); // 0=Sunday, 1=Monday, etc.
+            const todayIndex = today === 0 ? 7 : today; // Keep as 1-7 (Monday=1, Sunday=7)
+            const todayClasses = transformedData.filter(slot => slot.day_of_week === todayIndex);
+
+            if (todayClasses.length > 0) {
+                setSchedule({
+                    day_of_week: todayIndex,
+                    date: new Date().toISOString().split('T')[0]!,
+                    classes: todayClasses
+                });
+            } else {
+                setSchedule({
+                    day_of_week: todayIndex,
+                    date: new Date().toISOString().split('T')[0]!,
+                    classes: []
+                });
             }
 
             // Fetch attendance overview
-            const attendanceRes = await fetch(
-                `${API_BASE}/attendance/my?user_id=${user.id}`
-            );
-            const attendanceData = await attendanceRes.json();
-            if (attendanceData.success) {
-                setAttendanceOverall(attendanceData.data.overall);
+            try {
+                const attendanceRes = await fetch(`${API_BASE}/attendance/my?user_id=${user.id}`);
+                if (attendanceRes.ok) {
+                    const attendanceData = await attendanceRes.json();
+                    if (attendanceData.success) {
+                        setAttendanceOverall(attendanceData.data.overall);
+                    }
+                }
+            } catch (attErr) {
+                console.warn('Failed to fetch attendance, continuing without it:', attErr);
             }
         } catch (err) {
             console.error('Error fetching data:', err);
-            setError('Failed to load data. Please try again.');
+            setError(err instanceof Error ? err.message : 'Failed to load data. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -792,6 +901,18 @@ export default function Home() {
                         <h1 className="text-xl font-bold text-text-primary">{user?.fullName || 'Student'}</h1>
                     </div>
                     <div className="flex items-center gap-2">
+                        {/* Notification Bell */}
+                        <button
+                            onClick={() => navigate('/notifications')}
+                            className="relative p-2 text-text-secondary hover:text-accent-teal transition-colors"
+                            title="Notifications"
+                        >
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                            {/* Unread badge will be added here later */}
+                        </button>
+                        
                         <div className="w-10 h-10 rounded-full bg-accent-teal/20 flex items-center justify-center">
                             <span className="text-accent-teal font-semibold">
                                 {user?.fullName?.split(' ').map(n => n[0]).join('') || 'ST'}

@@ -20,6 +20,7 @@ import Courses from './pages/Courses';
 import CourseBranches from './pages/CourseBranches';
 import CourseBatches from './pages/CourseBatches';
 import CourseBatchBranches from './pages/CourseBatchBranches';
+import Notifications from './pages/Notifications';
 import { Layout } from './components/layout/Layout';
 
 // ============================================
@@ -106,7 +107,7 @@ function App() {
                         <Route path="courses/:courseId/batches/:batchId" element={<CourseBatchBranches />} />
 
                         <Route path="subjects" element={<Subjects />} />
-                        <Route path="timetables" element={<PlaceholderPage title="Timetables" />} />
+                        <Route path="notifications" element={<Notifications />} />
                         <Route path="settings" element={<PlaceholderPage title="Settings" />} />
                     </Route>
 

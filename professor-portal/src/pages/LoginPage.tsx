@@ -2,14 +2,15 @@
 // Professor Portal - Login Page
 // ============================================
 
-import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, type FormEvent } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
     const navigate = useNavigate();
-    const { signIn, isLoading: authLoading } = useAuth();
+    const location = useLocation();
+    const { signIn, isLoading: authLoading, isAuthenticated } = useAuth();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -19,6 +20,14 @@ export default function LoginPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const isLoading = authLoading || isSubmitting;
+
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (isAuthenticated && !authLoading) {
+            const from = (location.state as any)?.from?.pathname || '/home';
+            navigate(from, { replace: true });
+        }
+    }, [isAuthenticated, authLoading, navigate, location]);
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();

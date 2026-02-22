@@ -14,6 +14,7 @@ import {
     ArrowUpRight,
     Activity,
     TrendingUp,
+    Bell,
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
@@ -256,7 +257,7 @@ export default function Dashboard() {
     const quickActions = [
         { label: 'Add Student', icon: GraduationCap, path: '/students/new', color: 'primary' },
         { label: 'Add Professor', icon: Users, path: '/professors/new', color: 'secondary' },
-        { label: 'Create Batch', icon: Building2, path: '/batches/new', color: 'teal' },
+        { label: 'Send Notification', icon: Bell, path: '/notifications', color: 'teal' },
         { label: 'Add Subject', icon: BookOpen, path: '/subjects', color: 'orange' },
     ];
 
@@ -268,13 +269,22 @@ export default function Dashboard() {
                     <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
                     <p className="text-text-secondary mt-1">Welcome back! Here's what's happening.</p>
                 </div>
-                <button
-                    onClick={() => navigate('/students/new')}
-                    className="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg shadow-glow-indigo hover:-translate-y-0.5 hover:shadow-elevated transition-all duration-200"
-                >
-                    <Plus className="w-4 h-4" />
-                    Add New
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => navigate('/notifications')}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-accent-teal to-primary text-white font-semibold rounded-lg shadow-glow-teal hover:-translate-y-0.5 hover:shadow-elevated transition-all duration-200"
+                    >
+                        <Bell className="w-4 h-4" />
+                        <span className="hidden sm:inline">Send Notification</span>
+                    </button>
+                    <button
+                        onClick={() => navigate('/students/new')}
+                        className="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg shadow-glow-indigo hover:-translate-y-0.5 hover:shadow-elevated transition-all duration-200"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Add New
+                    </button>
+                </div>
             </div>
 
             {/* Stats Cards */}

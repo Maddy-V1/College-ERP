@@ -44,8 +44,13 @@ interface WeeklyTimetable {
     subject_name: string;
     subject_code: string;
     class_label?: string;
+    class_id?: string;
     class_subject_id: string;
     professor_name?: string;
+    batch_name?: string;
+    branch_code?: string;
+    total_classes_conducted?: number;
+    student_count?: number;
 }
 
 const API_BASE = import.meta.env.VITE_ACADEMIC_API_URL || 'http://localhost:4002/api/academic/v1';
@@ -348,8 +353,8 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
         return today >= 1 && today <= 5 ? today : 1;
     });
 
-    // Time slots - standard hours from 9 AM to 5 PM
-    const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+    // Time slots - 9 AM to 5:30 PM with lunch break at 1:00-1:30 PM
+    const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '13:30', '14:30', '15:30', '16:30', '17:30'];
     const days = [1, 2, 3, 4, 5];
     const dayFullNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     const today = new Date().getDay() === 0 ? 7 : new Date().getDay();
@@ -376,6 +381,42 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
     }));
 
     const rowHeight = 50; // Height per hour slot
+    
+    // Calculate position considering lunch break and new time structure
+    const getClassPosition = (startTime: string) => {
+        const [hourStr, minStr] = startTime.split(':');
+        const hour = parseInt(hourStr || '9');
+        const minute = parseInt(minStr || '0');
+        const startMin = hour * 60 + minute;
+        
+        // Time slot mapping:
+        // 9:00 -> row 0
+        // 10:00 -> row 1
+        // 11:00 -> row 2
+        // 12:00 -> row 3
+        // 13:00 -> row 4 (lunch)
+        // 13:30 -> row 5 (after lunch break, half row down)
+        // 14:30 -> row 6
+        // 15:30 -> row 7
+        // 16:30 -> row 8
+        // 17:30 -> row 9
+        
+        if (hour < 13) {
+            // Before 1 PM: 9am, 10am, 11am, 12pm
+            return (hour - 9) * rowHeight;
+        } else if (hour === 13 && minute === 0) {
+            // 1:00 PM - lunch time
+            return 4 * rowHeight;
+        } else if (hour === 13 && minute === 30) {
+            // 1:30 PM - right after lunch break
+            return 4 * rowHeight + (rowHeight / 2);
+        } else {
+            // After 1:30 PM: 2:30, 3:30, 4:30, 5:30
+            // 14:30 -> 5.5 rows, 15:30 -> 6.5 rows, etc.
+            const hoursFrom9 = hour - 9;
+            return hoursFrom9 * rowHeight + (rowHeight / 2);
+        }
+    };
 
     // Get days to display
     const getDaysToShow = () => {
@@ -454,13 +495,16 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
             {/* Main Grid: Timeline + Day Columns */}
             <div className="flex">
                 {/* Time Column - using absolute positioning for proper alignment */}
-                <div className="flex-shrink-0 w-14 bg-bg-tertiary/30 border-r border-white/10 relative" style={{ height: `${timeSlots.length * rowHeight}px` }}>
+                <div className="flex-shrink-0 w-14 bg-bg-tertiary/30 border-r border-white/10 relative" style={{ height: `${(timeSlots.length - 1) * rowHeight + rowHeight / 2}px` }}>
                     {timeSlots.map((time, index) => {
                         const hour = parseInt(time.split(':')[0] || '0');
                         const minute = parseInt(time.split(':')[1] || '0');
                         const isLunch = hour === 13 && minute === 0;
                         const isLunchEnd = hour === 13 && minute === 30;
                         const isCurrentHour = currentHour === hour && (minute === 0 ? currentMinute < 30 : currentMinute >= 30);
+                        
+                        // Position: regular slots, but 1:30 PM is half slot after 1:00 PM
+                        const topPosition = index <= 4 ? index * rowHeight : (index - 1) * rowHeight + rowHeight / 2;
 
                         return (
                             <div
@@ -469,7 +513,7 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
                                     isLunchEnd ? 'text-warning/70' :
                                         isCurrentHour ? 'text-primary font-bold' : 'text-text-muted'
                                     }`}
-                                style={{ top: `${index * rowHeight}px` }}
+                                style={{ top: `${topPosition}px` }}
                             >
                                 {formatTime(time)}
                             </div>
@@ -483,26 +527,29 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
                         <div
                             key={`c-${day}`}
                             className={`relative border-l border-white/5 ${day === today ? 'bg-primary/5' : ''}`}
-                            style={{ height: `${timeSlots.length * rowHeight}px` }}
+                            style={{ height: `${(timeSlots.length - 1) * rowHeight + rowHeight / 2}px` }}
                         >
                             {/* Hour grid lines */}
-                            {timeSlots.map((_, i) => (
-                                <div
-                                    key={i}
-                                    className="absolute left-0 right-0 border-t border-white/8"
-                                    style={{ top: `${i * rowHeight}px` }}
-                                />
-                            ))}
+                            {timeSlots.map((_, i) => {
+                                const topPosition = i <= 4 ? i * rowHeight : (i - 1) * rowHeight + rowHeight / 2;
+                                return (
+                                    <div
+                                        key={i}
+                                        className="absolute left-0 right-0 border-t border-white/8"
+                                        style={{ top: `${topPosition}px` }}
+                                    />
+                                );
+                            })}
 
-                            {/* Lunch break indicator - 1:00-1:30 PM (first half of 1-2 PM slot) */}
+                            {/* Lunch break indicator - 1:00-1:30 PM with border */}
                             <div
-                                className="absolute left-0 right-0 bg-warning/10 flex items-center justify-center pointer-events-none"
+                                className="absolute left-0 right-0 bg-warning/10 border-t-2 border-b-2 border-warning/30 flex items-center justify-center pointer-events-none z-10"
                                 style={{
                                     top: `${4 * rowHeight}px`,
                                     height: `${rowHeight / 2}px`
                                 }}
                             >
-                                <span className="text-[9px] font-semibold text-warning/60 uppercase tracking-wider">🍽️ Lunch</span>
+                                <span className="text-[10px] font-bold text-warning uppercase tracking-wider">🍽️ Lunch Break</span>
                             </div>
 
                             {/* Current time indicator */}
@@ -520,13 +567,13 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
                                 const color = getSubjectColor(cls.subject_code);
                                 const startMin = parseInt(cls.start_time.split(':')[0] || '9') * 60 + parseInt(cls.start_time.split(':')[1] || '0');
                                 const endMin = parseInt(cls.end_time.split(':')[0] || '10') * 60 + parseInt(cls.end_time.split(':')[1] || '0');
-                                const top = ((startMin - 9 * 60) / 60) * rowHeight;
+                                const top = getClassPosition(cls.start_time);
                                 const height = ((endMin - startMin) / 60) * rowHeight;
 
                                 return (
                                     <div
                                         key={cls.id}
-                                        className="absolute left-2 right-2 rounded-xl p-2.5 overflow-hidden hover:brightness-110 hover:scale-[1.02] transition-all shadow-md cursor-pointer"
+                                        className="absolute left-2 right-2 rounded-xl p-2.5 overflow-hidden hover:brightness-110 hover:scale-[1.02] transition-all shadow-md cursor-pointer z-20"
                                         style={{
                                             top: `${top + 3}px`,
                                             height: `${Math.max(height - 6, 40)}px`,
@@ -534,24 +581,27 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
                                             borderLeft: `4px solid ${color.border}`,
                                         }}
                                     >
-                                        <p className="text-sm font-bold truncate" style={{ color: color.text }}>{cls.subject_name}</p>
+                                        <p className="text-sm font-bold truncate leading-tight" style={{ color: color.text }}>{cls.class_label || 'Class'}</p>
                                         {height > 50 && (
                                             <div className="mt-1 space-y-0.5">
                                                 <p className="text-xs text-text-secondary truncate flex items-center gap-1">
-                                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                    <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                                     </svg>
-                                                    {cls.class_label || 'Class'}
+                                                    <span className="truncate">{cls.subject_name}</span>
                                                 </p>
-                                                {cls.room_number && (
-                                                    <p className="text-xs text-text-muted truncate flex items-center gap-1">
-                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                        </svg>
-                                                        Room {cls.room_number}
-                                                    </p>
-                                                )}
+                                                <p className="text-xs text-text-muted truncate flex items-center gap-1">
+                                                    <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                    </svg>
+                                                    <span className="truncate">Room {cls.room_number || '-'}</span>
+                                                </p>
                                             </div>
+                                        )}
+                                        {height <= 50 && height > 30 && (
+                                            <p className="text-[10px] text-text-muted truncate mt-0.5">
+                                                {cls.subject_name} • Room {cls.room_number || '-'}
+                                            </p>
                                         )}
                                     </div>
                                 );
@@ -609,26 +659,104 @@ export default function Home() {
         setError(null);
 
         try {
-            // Fetch today's schedule
-            const scheduleRes = await fetch(
-                `${API_BASE}/timetable/today?user_id=${user.id}&role=professor`
-            );
-            const scheduleData = await scheduleRes.json();
-            if (scheduleData.success) {
-                setSchedule(scheduleData.data);
+            console.log('Fetching professor profile to get professor_id...');
+            
+            // First, get professor profile to find their professor_id
+            const profileRes = await fetch(`${API_BASE}/professor/profile?user_id=${user.id}`);
+            if (!profileRes.ok) {
+                throw new Error('Failed to fetch professor profile');
+            }
+            const profileData = await profileRes.json();
+            
+            if (!profileData.success || !profileData.data) {
+                throw new Error('Invalid profile response');
+            }
+            
+            const professorId = profileData.data.id; // This is the professor_profiles.id
+            
+            if (!professorId) {
+                throw new Error('Professor profile not found');
             }
 
-            // Fetch weekly timetable for desktop
-            const weeklyRes = await fetch(
-                `${API_BASE}/timetable/my?user_id=${user.id}&role=professor`
-            );
-            const weeklyData = await weeklyRes.json();
-            if (weeklyData.success) {
-                setWeeklyTimetable(weeklyData.data);
+            console.log('Professor ID:', professorId);
+            
+            // Fetch professor's timetable
+            const timetableRes = await fetch(`${API_BASE}/timetable/professor/${professorId}`);
+            
+            if (!timetableRes.ok) {
+                throw new Error(`Failed to fetch timetable: ${timetableRes.status}`);
             }
+            
+            const timetableData = await timetableRes.json();
+            console.log('Timetable data received:', timetableData);
+
+            // Transform the data to match the expected format
+            const transformedData: WeeklyTimetable[] = (Array.isArray(timetableData) ? timetableData : []).map(slot => {
+                // Map day_of_week string to number (1=Monday, 5=Friday)
+                const dayMap: Record<string, number> = {
+                    'monday': 1,
+                    'tuesday': 2,
+                    'wednesday': 3,
+                    'thursday': 4,
+                    'friday': 5,
+                    'saturday': 6
+                };
+
+                return {
+                    id: slot.id,
+                    day_of_week: dayMap[slot.day_of_week?.toLowerCase()] ?? 1,
+                    start_time: slot.start_time,
+                    end_time: slot.end_time,
+                    slot_type: slot.slot_type || 'regular',
+                    subject_name: slot.class_subjects?.subjects?.subject_name || 'Unknown Subject',
+                    subject_code: slot.class_subjects?.subjects?.subject_code || 'N/A',
+                    professor_name: user.fullName || 'You',
+                    room_number: slot.room_number || '',
+                    class_label: slot.class_subjects?.classes?.class_label || 'N/A',
+                    class_id: slot.class_subjects?.classes?.id || '',
+                    class_subject_id: slot.class_subject_id || slot.id,
+                    batch_name: slot.class_subjects?.classes?.batches?.batch_name || 'N/A',
+                    branch_code: slot.class_subjects?.classes?.branches?.branch_code || 'N/A',
+                    total_classes_conducted: 0,
+                    student_count: 0
+                };
+            });
+
+            console.log('Transformed timetable:', transformedData);
+            setWeeklyTimetable(transformedData);
+
+            // Filter today's schedule
+            const today = new Date().getDay(); // 0=Sunday, 1=Monday, etc.
+            const todayIndex = today === 0 ? 7 : today; // Keep as 1-7 (Monday=1, Sunday=7)
+            const todayClasses = transformedData.filter(slot => slot.day_of_week === todayIndex);
+
+            if (todayClasses.length > 0) {
+                setSchedule({
+                    day_of_week: todayIndex,
+                    date: new Date().toISOString().split('T')[0]!,
+                    classes: todayClasses.map(cls => ({
+                        id: cls.id,
+                        start_time: cls.start_time,
+                        end_time: cls.end_time,
+                        room_number: cls.room_number,
+                        slot_type: cls.slot_type,
+                        subject_name: cls.subject_name,
+                        subject_code: cls.subject_code,
+                        class_label: cls.class_label || 'N/A',
+                        class_id: cls.class_id || '',
+                        class_subject_id: cls.class_subject_id,
+                        batch_name: cls.batch_name || 'N/A',
+                        branch_code: cls.branch_code || 'N/A',
+                        total_classes_conducted: cls.total_classes_conducted || 0,
+                        student_count: cls.student_count || 0,
+                        cr: null
+                    }))
+                });
+            }
+
         } catch (err) {
             console.error('Error fetching data:', err);
-            setError('Failed to load data. Please try again.');
+            setError('Failed to load timetable. Please try again.');
         } finally {
             setLoading(false);
         }

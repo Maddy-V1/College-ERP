@@ -17,9 +17,10 @@ import Profile from './pages/Profile';
 // Protected Route Wrapper
 // ============================================
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const { isAuthenticated, isLoading } = useAuth();
+    const { isAuthenticated, isLoading, profileLoading } = useAuth();
     const location = useLocation();
 
+    // Show loading only during initial auth check
     if (isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-bg-primary">
@@ -31,10 +32,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         );
     }
 
+    // Redirect to login if not authenticated
     if (!isAuthenticated) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
+    // Show content even if profile is still loading (non-blocking)
     return <>{children}</>;
 }
 
