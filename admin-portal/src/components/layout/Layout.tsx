@@ -10,7 +10,6 @@ import {
     Users,
     GraduationCap,
     BookOpen,
-    Calendar,
     Settings,
     Bell,
     Menu,
@@ -19,6 +18,7 @@ import {
     ChevronRight,
     Layers,
     BookText,
+    Building2,
 } from 'lucide-react';
 
 // ============================================
@@ -31,8 +31,9 @@ const navItems = [
     { path: '/students', icon: GraduationCap, label: 'Students' },
     { path: '/courses', icon: BookOpen, label: 'Courses' },
     { path: '/batches', icon: Layers, label: 'Batches' },
+    { path: '/classes', icon: Building2, label: 'Classes' },
     { path: '/subjects', icon: BookText, label: 'Subjects' },
-    { path: '/notifications', icon: Calendar, label: 'Send Notification' },
+    { path: '/notifications', icon: Bell, label: 'Send Notification' },
     { path: '/settings', icon: Settings, label: 'Settings' },
 ];
 
@@ -51,10 +52,10 @@ export function Layout() {
     return (
         <div className="min-h-screen bg-bg-primary flex">
             {/* Sidebar - Desktop */}
-            <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-bg-secondary border-r border-white/10">
+            <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-bg-secondary/95 backdrop-blur-xl border-r border-white/10 shadow-card">
                 {/* Logo */}
                 <div className="h-16 flex items-center gap-3 px-6 border-b border-white/10">
-                    <div className="w-10 h-10 bg-gradient-to-br from-secondary to-primary rounded-xl flex items-center justify-center shadow-glow-indigo">
+                    <div className="w-10 h-10 bg-gradient-accent rounded-lg flex items-center justify-center shadow-glow-indigo">
                         <span className="text-white font-bold text-lg">E</span>
                     </div>
                     <div>
@@ -70,8 +71,8 @@ export function Layout() {
                             key={item.path}
                             to={item.path}
                             className={({ isActive }) =>
-                                `flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${isActive
-                                    ? 'bg-secondary/10 text-secondary'
+                                `flex min-h-[46px] items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${isActive
+                                    ? 'bg-secondary/15 text-secondary shadow-card'
                                     : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
                                 }`
                             }
@@ -85,7 +86,7 @@ export function Layout() {
                 {/* User Section */}
                 <div className="p-4 border-t border-white/10">
                     <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-full bg-secondary/20 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-lg bg-secondary/20 flex items-center justify-center">
                             <span className="text-secondary font-semibold">
                                 {user?.fullName?.charAt(0) || 'A'}
                             </span>
@@ -97,7 +98,7 @@ export function Layout() {
                     </div>
                     <button
                         onClick={signOut}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors"
+                        className="w-full flex min-h-[44px] items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors"
                     >
                         <LogOut className="w-4 h-4" />
                         Sign Out
@@ -115,17 +116,17 @@ export function Layout() {
 
             {/* Mobile Sidebar */}
             <aside
-                className={`fixed inset-y-0 left-0 w-64 bg-bg-secondary border-r border-white/10 transform transition-transform duration-300 z-50 lg:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                className={`fixed inset-y-0 left-0 w-72 max-w-[86vw] bg-bg-secondary/95 backdrop-blur-xl border-r border-white/10 transform transition-transform duration-300 z-50 lg:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
                     }`}
             >
                 <div className="h-16 flex items-center justify-between px-6 border-b border-white/10">
                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-secondary to-primary rounded-lg flex items-center justify-center">
+                        <div className="w-8 h-8 bg-gradient-accent rounded-lg flex items-center justify-center">
                             <span className="text-white font-bold">E</span>
                         </div>
                         <span className="font-bold text-text-primary">Admin</span>
                     </div>
-                    <button onClick={() => setSidebarOpen(false)} className="p-2 text-text-secondary">
+                    <button onClick={() => setSidebarOpen(false)} className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-text-secondary hover:bg-white/5">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -136,8 +137,8 @@ export function Layout() {
                             to={item.path}
                             onClick={() => setSidebarOpen(false)}
                             className={({ isActive }) =>
-                                `flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${isActive
-                                    ? 'bg-secondary/10 text-secondary'
+                                `flex min-h-[48px] items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${isActive
+                                    ? 'bg-secondary/15 text-secondary shadow-card'
                                     : 'text-text-secondary hover:bg-white/5'
                                 }`
                             }
@@ -152,12 +153,12 @@ export function Layout() {
             {/* Main Content */}
             <div className="flex-1 lg:ml-64">
                 {/* Top Header */}
-                <header className="h-16 bg-bg-secondary/80 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
+                <header className="min-h-16 bg-bg-secondary/85 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
                     {/* Left: Mobile menu + Breadcrumbs */}
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => setSidebarOpen(true)}
-                            className="p-2 text-text-secondary lg:hidden"
+                            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-text-secondary hover:bg-white/5 lg:hidden"
                         >
                             <Menu className="w-5 h-5" />
                         </button>
@@ -170,12 +171,12 @@ export function Layout() {
 
                     {/* Right: Notifications + Profile */}
                     <div className="flex items-center gap-3">
-                        <button className="relative p-2 text-text-secondary hover:text-text-primary hover:bg-white/5 rounded-lg transition-colors">
+                        <button className="relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors">
                             <Bell className="w-5 h-5" />
                             <span className="absolute top-1 right-1 w-2 h-2 bg-error rounded-full" />
                         </button>
                         <div className="hidden sm:flex items-center gap-3 pl-3 border-l border-white/10">
-                            <div className="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-lg bg-secondary/20 flex items-center justify-center">
                                 <span className="text-secondary font-semibold text-sm">
                                     {user?.fullName?.charAt(0) || 'A'}
                                 </span>

@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Header, PageContainer, Card, Badge, LoadingSpinner, EmptyState, BottomNav, ProgressBar } from '../components/Layout';
+import { Header, PageContainer, Card, Badge, LoadingSpinner, EmptyState, ProgressBar } from '../components/Layout';
 
 // ============================================
 // Types
@@ -447,7 +447,6 @@ export default function Attendance() {
                 />
             )}
 
-            <BottomNav />
         </PageContainer>
     );
 }

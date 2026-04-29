@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Header, PageContainer, Card, LoadingSpinner, EmptyState, BottomNav } from '../components/Layout';
+import { Header, PageContainer, Card, LoadingSpinner, EmptyState } from '../components/Layout';
 import { createClient } from '@supabase/supabase-js';
 
 // ============================================
@@ -378,7 +378,6 @@ export default function Groups() {
             header={<Header title="Groups" />}
         >
             <GroupList onSelectGroup={setSelectedGroup} />
-            <BottomNav />
         </PageContainer>
     );
 }

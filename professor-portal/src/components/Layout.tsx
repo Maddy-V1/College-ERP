@@ -68,20 +68,20 @@ export function BottomNav() {
     };
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-bg-secondary/95 backdrop-blur-xl border-t border-white/10 flex justify-around items-center z-50 safe-area-bottom">
+        <nav className="fixed bottom-0 left-0 right-0 min-h-[78px] bg-bg-secondary/95 backdrop-blur-xl border-t border-white/10 grid grid-cols-5 items-center z-50 safe-area-bottom shadow-elevated">
             {items.map((item) => (
                 <button
                     key={item.label}
                     onClick={() => navigate(item.path)}
-                    className={`flex flex-col items-center gap-0.5 px-3 py-2 transition-all duration-200 ${isActive(item.path)
-                        ? 'text-primary scale-105'
-                        : 'text-text-secondary hover:text-text-primary'
+                    className={`mx-1 flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 transition-all duration-200 ${isActive(item.path)
+                        ? 'bg-primary/15 text-primary shadow-glow-teal'
+                        : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
                         }`}
                 >
                     <span className={isActive(item.path) ? 'animate-bounce-subtle' : ''}>
                         {item.icon}
                     </span>
-                    <span className="text-xs font-medium">{item.label}</span>
+                    <span className="text-[11px] font-semibold leading-none">{item.label}</span>
                 </button>
             ))}
         </nav>
@@ -118,13 +118,13 @@ export function Header({ title, showDate = false, showNotification = true, showB
     };
 
     return (
-        <header className="sticky top-0 z-40 bg-bg-primary/95 backdrop-blur-xl border-b border-white/5 safe-area-top">
-            <div className="flex items-center justify-between px-4 py-3">
+        <header className="sticky top-0 z-40 bg-bg-primary/90 backdrop-blur-xl border-b border-white/10 safe-area-top">
+            <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3">
                     {showBack && (
                         <button
                             onClick={onBack || (() => navigate(-1))}
-                            className="p-2 -ml-2 text-text-secondary hover:text-text-primary transition-colors"
+                            className="-ml-2 flex min-h-[48px] min-w-[48px] items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
                         >
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -139,8 +139,8 @@ export function Header({ title, showDate = false, showNotification = true, showB
                                 {showDate && (
                                     <p className="text-xs text-text-muted">{dateString}</p>
                                 )}
-                                <p className="text-sm text-text-secondary">{getGreeting()}</p>
-                                <h1 className="text-lg font-bold text-text-primary">
+                                <p className="text-sm font-medium text-text-secondary">{getGreeting()}</p>
+                                <h1 className="text-xl font-bold text-text-primary">
                                     Prof. {user?.fullName?.split(' ')[0] || 'Professor'}
                                 </h1>
                             </>
@@ -151,7 +151,7 @@ export function Header({ title, showDate = false, showNotification = true, showB
                 {showNotification && (
                     <button
                         onClick={() => navigate('/notifications')}
-                        className="relative p-2 text-text-secondary hover:text-text-primary transition-colors"
+                        className="relative flex min-h-[48px] min-w-[48px] items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -179,7 +179,7 @@ export function PageContainer({ children, header, noPadding = false, noBottomNav
     return (
         <div className="min-h-screen bg-bg-primary">
             {header}
-            <main className={`${noPadding ? '' : 'px-4 py-4'} ${noBottomNav ? '' : 'pb-20'}`}>
+            <main className={`${noPadding ? '' : 'mx-auto w-full max-w-3xl px-4 py-4'} ${noBottomNav ? '' : 'pb-24'}`}>
                 {children}
             </main>
             {!noBottomNav && <BottomNav />}
@@ -216,7 +216,7 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
     return (
         <div className="flex flex-col items-center justify-center py-12 text-center">
             {icon && (
-                <div className="w-16 h-16 rounded-full bg-bg-tertiary flex items-center justify-center mb-4 text-text-muted">
+                <div className="w-16 h-16 rounded-lg bg-bg-tertiary flex items-center justify-center mb-4 text-text-muted">
                     {icon}
                 </div>
             )}
@@ -275,16 +275,16 @@ export function Button({
     ...props
 }: ButtonProps) {
     const variants = {
-        primary: 'bg-primary text-white hover:bg-primary/90',
-        secondary: 'bg-bg-tertiary text-text-primary hover:bg-bg-tertiary/80',
+        primary: 'bg-gradient-primary text-white shadow-glow-teal hover:shadow-elevated',
+        secondary: 'bg-bg-tertiary text-text-primary hover:bg-bg-elevated',
         ghost: 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-white/5',
         danger: 'bg-error text-white hover:bg-error/90',
     };
 
     const sizes = {
-        sm: 'px-3 py-1.5 text-sm',
-        md: 'px-4 py-2 text-sm',
-        lg: 'px-6 py-3 text-base',
+        sm: 'px-3 py-2 text-sm min-h-[44px]',
+        md: 'px-4 py-3 text-sm min-h-[50px]',
+        lg: 'px-6 py-3 text-base min-h-[54px]',
     };
 
     return (

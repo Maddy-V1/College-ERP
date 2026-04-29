@@ -14,21 +14,23 @@ module.exports = {
             colors: {
                 // Primary
                 primary: {
-                    DEFAULT: '#0066FF',
-                    light: '#3385FF',
-                    dark: '#0052CC',
+                    DEFAULT: '#0F766E',
+                    light: '#14B8A6',
+                    dark: '#115E59',
                 },
                 // Secondary
                 secondary: {
-                    DEFAULT: '#6366F1',
-                    light: '#818CF8',
-                    dark: '#4F46E5',
+                    DEFAULT: '#EA580C',
+                    light: '#FB923C',
+                    dark: '#C2410C',
                 },
                 // Accent
                 accent: {
                     teal: '#14B8A6',
-                    emerald: '#10B981',
+                    emerald: '#22C55E',
                     orange: '#F97316',
+                    sky: '#0EA5E9',
+                    gold: '#F59E0B',
                 },
                 // Status
                 success: '#10B981',
@@ -37,16 +39,16 @@ module.exports = {
                 info: '#3B82F6',
                 // Role-based
                 role: {
-                    admin: '#6366F1',
-                    professor: '#0066FF',
+                    admin: '#EA580C',
+                    professor: '#0F766E',
                     student: '#14B8A6',
                 },
                 // Background layers
                 bg: {
-                    primary: '#0A0A0F',
-                    secondary: '#1A1A2E',
-                    tertiary: '#16213E',
-                    elevated: '#1E293B',
+                    primary: '#07110F',
+                    secondary: '#10201C',
+                    tertiary: '#172A25',
+                    elevated: '#203832',
                 },
                 // Text
                 text: {
@@ -97,33 +99,33 @@ module.exports = {
             // ============================================
             borderRadius: {
                 sm: '8px',
-                md: '12px',
-                lg: '16px',
-                xl: '24px',
-                '2xl': '32px',
+                md: '8px',
+                lg: '8px',
+                xl: '10px',
+                '2xl': '12px',
             },
 
             // ============================================
             // BOX SHADOW
             // ============================================
             boxShadow: {
-                'glow-blue': '0 4px 16px rgba(0, 102, 255, 0.3)',
-                'glow-indigo': '0 4px 16px rgba(99, 102, 241, 0.3)',
-                'glow-teal': '0 4px 16px rgba(20, 184, 166, 0.3)',
-                card: '0 4px 12px rgba(0, 102, 255, 0.15)',
-                elevated: '0 8px 24px rgba(0, 102, 255, 0.2)',
-                xl: '0 16px 48px rgba(0, 102, 255, 0.25)',
+                'glow-blue': '0 4px 16px rgba(14, 165, 233, 0.25)',
+                'glow-indigo': '0 4px 16px rgba(234, 88, 12, 0.25)',
+                'glow-teal': '0 4px 18px rgba(20, 184, 166, 0.28)',
+                card: '0 10px 28px rgba(0, 0, 0, 0.22)',
+                elevated: '0 16px 40px rgba(0, 0, 0, 0.28)',
+                xl: '0 22px 60px rgba(0, 0, 0, 0.32)',
             },
 
             // ============================================
             // BACKGROUND IMAGES (Gradients)
             // ============================================
             backgroundImage: {
-                'gradient-primary': 'linear-gradient(135deg, #0066FF, #6366F1)',
-                'gradient-success': 'linear-gradient(135deg, #10B981, #14B8A6)',
-                'gradient-hero': 'linear-gradient(135deg, #0A1929, #1A2B3D)',
-                'gradient-card': 'linear-gradient(135deg, rgba(0, 102, 255, 0.05), rgba(99, 102, 241, 0.05))',
-                'gradient-accent': 'linear-gradient(135deg, #0066FF, #14B8A6)',
+                'gradient-primary': 'linear-gradient(135deg, #0F766E, #0EA5E9)',
+                'gradient-success': 'linear-gradient(135deg, #22C55E, #14B8A6)',
+                'gradient-hero': 'linear-gradient(135deg, #07110F 0%, #10201C 52%, #1F2A18 100%)',
+                'gradient-card': 'linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(245, 158, 11, 0.08))',
+                'gradient-accent': 'linear-gradient(135deg, #EA580C, #F59E0B)',
             },
 
             // ============================================

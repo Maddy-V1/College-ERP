@@ -61,18 +61,18 @@ export function BottomNav() {
     ];
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-bg-secondary/95 backdrop-blur-xl border-t border-white/10 flex justify-around items-center z-50 safe-area-bottom">
+        <nav className="fixed bottom-0 left-0 right-0 min-h-[74px] bg-bg-secondary/95 backdrop-blur-xl border-t border-white/10 grid grid-cols-5 items-center z-50 safe-area-bottom shadow-elevated">
             {items.map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
                     <button
                         key={item.label}
                         onClick={() => navigate(item.path)}
-                        className={`flex flex-col items-center gap-1 px-4 py-2 transition-colors ${isActive ? 'text-accent-teal' : 'text-text-secondary hover:text-text-primary'
+                        className={`mx-1 flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 transition-all ${isActive ? 'bg-accent-teal/15 text-accent-teal shadow-glow-teal' : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
                             }`}
                     >
                         <span className={isActive ? 'text-accent-teal' : ''}>{item.icon}</span>
-                        <span className="text-xs font-medium">{item.label}</span>
+                        <span className="text-[11px] font-semibold leading-none">{item.label}</span>
                     </button>
                 );
             })}
@@ -113,12 +113,12 @@ export function Header({ title, showDate, showNotification, showBack, onBack }: 
     };
 
     return (
-        <header className="flex items-center justify-between py-4">
+        <header className="sticky top-0 z-40 -mx-4 mb-2 flex items-center justify-between border-b border-white/10 bg-bg-primary/90 px-4 py-3 backdrop-blur-xl safe-area-top">
             <div className="flex items-center gap-3">
                 {showBack && (
                     <button
                         onClick={handleBack}
-                        className="p-2 -ml-2 text-text-secondary hover:text-text-primary transition-colors"
+                        className="-ml-2 flex min-h-[46px] min-w-[46px] items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -134,7 +134,10 @@ export function Header({ title, showDate, showNotification, showBack, onBack }: 
             </div>
 
             {showNotification && (
-                <button className="relative p-2 text-text-secondary hover:text-text-primary transition-colors">
+                <button
+                    onClick={() => navigate('/notifications')}
+                    className="relative flex min-h-[46px] min-w-[46px] items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
+                >
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                     </svg>
@@ -157,9 +160,12 @@ interface PageContainerProps {
 
 export function PageContainer({ children, header, noPadding, noBottomNav }: PageContainerProps) {
     return (
-        <div className={`min-h-screen bg-bg-primary ${noPadding ? '' : 'px-4'} ${noBottomNav ? '' : 'pb-20'}`}>
+        <div className={`min-h-screen bg-bg-primary ${noPadding ? '' : 'px-4'} ${noBottomNav ? '' : 'pb-24'}`}>
             {header}
-            {children}
+            <main className={noPadding ? '' : 'mx-auto w-full max-w-3xl'}>
+                {children}
+            </main>
+            {!noBottomNav && <BottomNav />}
         </div>
     );
 }
@@ -241,7 +247,7 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
     return (
         <div className="flex flex-col items-center justify-center py-12 text-center">
             {icon && (
-                <div className="w-16 h-16 rounded-full bg-bg-tertiary flex items-center justify-center mb-4 text-text-muted">
+                <div className="w-16 h-16 rounded-lg bg-bg-tertiary flex items-center justify-center mb-4 text-text-muted">
                     {icon}
                 </div>
             )}

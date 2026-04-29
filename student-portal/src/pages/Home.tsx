@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { PageContainer, Card, Badge, LoadingSpinner, EmptyState, BottomNav } from '../components/Layout';
+import { PageContainer, Card, Badge, LoadingSpinner, EmptyState } from '../components/Layout';
 
 // ============================================
 // Types
@@ -309,7 +309,7 @@ function getSubjectColor(subjectCode: string): typeof SUBJECT_COLORS[0] {
     for (let i = 0; i < subjectCode.length; i++) {
         hash = subjectCode.charCodeAt(i) + ((hash << 5) - hash);
     }
-    return SUBJECT_COLORS[Math.abs(hash) % SUBJECT_COLORS.length];
+    return SUBJECT_COLORS[Math.abs(hash) % SUBJECT_COLORS.length]!;
 }
 
 // ============================================
@@ -479,7 +479,6 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
         const [hourStr, minStr] = startTime.split(':');
         const hour = parseInt(hourStr || '9');
         const minute = parseInt(minStr || '0');
-        const startMin = hour * 60 + minute;
         
         // Time slot mapping:
         // 9:00 -> row 0
@@ -531,7 +530,7 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
             <div className="flex border-b border-white/10">
                 {/* Time label (corner 0,0) */}
                 <div className="flex-shrink-0 w-14 h-11 flex items-center justify-center bg-bg-tertiary/50 border-r border-white/10">
-                    <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Time</span>
+                    <span className="text-[10px] font-bold text-text-muted uppercase">Time</span>
                 </div>
 
                 {/* Day Header with arrows (mobile/tablet) or all days (desktop) */}
@@ -641,7 +640,7 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
                                     height: `${rowHeight / 2}px`
                                 }}
                             >
-                                <span className="text-[10px] font-bold text-warning uppercase tracking-wider">🍽️ Lunch Break</span>
+                                <span className="text-[10px] font-bold text-warning uppercase">Lunch Break</span>
                             </div>
 
                             {/* Current time indicator */}
@@ -969,7 +968,12 @@ export default function Home() {
             {/* Weekly Timetable - Full Grid with all days and time slots */}
             <div className="mb-6">
                 <h2 className="text-lg font-bold text-text-primary mb-4">Weekly Timetable</h2>
-                <WeeklyGridView timetable={weeklyTimetable} />
+                <div className="sm:hidden">
+                    <MobileWeeklyTimetable timetable={weeklyTimetable} />
+                </div>
+                <div className="hidden sm:block">
+                    <WeeklyGridView timetable={weeklyTimetable} />
+                </div>
             </div>
 
             {/* Loading State */}
@@ -1024,8 +1028,6 @@ export default function Home() {
                     )}
                 </div>
             )}
-
-            <BottomNav />
         </PageContainer>
     );
 }

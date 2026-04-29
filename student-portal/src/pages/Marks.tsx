@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Header, PageContainer, Card, Badge, LoadingSpinner, EmptyState, BottomNav } from '../components/Layout';
+import { Header, PageContainer, Card, Badge, LoadingSpinner, EmptyState } from '../components/Layout';
 
 // ============================================
 // Types
@@ -496,7 +496,6 @@ export default function Marks() {
                 />
             )}
 
-            <BottomNav />
         </PageContainer>
     );
 }

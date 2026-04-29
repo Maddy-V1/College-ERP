@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Header, PageContainer, Card, LoadingSpinner, EmptyState, BottomNav, Badge } from '../components/Layout';
+import { Header, PageContainer, Card, LoadingSpinner, EmptyState, Badge } from '../components/Layout';
 
 // ============================================
 // Types - Matching actual database schema
@@ -147,7 +147,7 @@ export default function Profile() {
 
                     {/* Academic Info */}
                     <div className="space-y-3">
-                        <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider ml-1">
+                        <h3 className="text-sm font-semibold text-text-muted uppercase ml-1">
                             Academic Details
                         </h3>
                         <Card>
@@ -165,7 +165,7 @@ export default function Profile() {
 
                     {/* Personal Info */}
                     <div className="space-y-3">
-                        <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider ml-1">
+                        <h3 className="text-sm font-semibold text-text-muted uppercase ml-1">
                             Personal Details
                         </h3>
                         <Card>
@@ -182,7 +182,7 @@ export default function Profile() {
                     {/* Guardian Info */}
                     {(profile.guardian_name || profile.guardian_phone) && (
                         <div className="space-y-3">
-                            <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider ml-1">
+                            <h3 className="text-sm font-semibold text-text-muted uppercase ml-1">
                                 Guardian Details
                             </h3>
                             <Card>
@@ -212,7 +212,6 @@ export default function Profile() {
                 </div>
             ) : null}
 
-            <BottomNav />
         </PageContainer>
     );
 }

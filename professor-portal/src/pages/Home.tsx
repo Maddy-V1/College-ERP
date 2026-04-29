@@ -387,7 +387,6 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
         const [hourStr, minStr] = startTime.split(':');
         const hour = parseInt(hourStr || '9');
         const minute = parseInt(minStr || '0');
-        const startMin = hour * 60 + minute;
         
         // Time slot mapping:
         // 9:00 -> row 0
@@ -439,7 +438,7 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
             <div className="flex border-b border-white/10">
                 {/* Time label (corner 0,0) */}
                 <div className="flex-shrink-0 w-14 h-11 flex items-center justify-center bg-bg-tertiary/50 border-r border-white/10">
-                    <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Time</span>
+                    <span className="text-[10px] font-bold text-text-muted uppercase">Time</span>
                 </div>
 
                 {/* Day Header with arrows (mobile/tablet) or all days (desktop) */}
@@ -549,7 +548,7 @@ function WeeklyGridView({ timetable }: { timetable: WeeklyTimetable[] }) {
                                     height: `${rowHeight / 2}px`
                                 }}
                             >
-                                <span className="text-[10px] font-bold text-warning uppercase tracking-wider">🍽️ Lunch Break</span>
+                                <span className="text-[10px] font-bold text-warning uppercase">Lunch Break</span>
                             </div>
 
                             {/* Current time indicator */}
@@ -887,6 +886,43 @@ export default function Home() {
                             onContactCR={handleContactCR}
                         />
                     )}
+                </div>
+            )}
+
+            {selectedCR?.cr && (
+                <div className="fixed inset-x-0 bottom-0 z-modal mx-auto max-w-3xl px-4 pb-24">
+                    <div className="glass-card animate-slide-up p-4 shadow-xl">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <p className="text-xs font-semibold uppercase text-primary">Class representative</p>
+                                <h3 className="mt-1 text-lg font-bold text-text-primary">{selectedCR.cr.name}</h3>
+                                <p className="text-sm text-text-secondary">{selectedCR.className} • {selectedCR.cr.roll_number}</p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedCR(null)}
+                                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-text-secondary hover:bg-white/5 hover:text-text-primary"
+                                aria-label="Close CR contact panel"
+                            >
+                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                            <a
+                                href={`tel:${selectedCR.cr.phone}`}
+                                className="btn-primary flex items-center justify-center text-center"
+                            >
+                                Call CR
+                            </a>
+                            <a
+                                href={`mailto:${selectedCR.cr.email}`}
+                                className="btn-secondary flex items-center justify-center text-center"
+                            >
+                                Email CR
+                            </a>
+                        </div>
+                    </div>
                 </div>
             )}
         </PageContainer>

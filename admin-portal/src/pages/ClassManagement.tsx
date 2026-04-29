@@ -1155,7 +1155,7 @@ function TimetableTab({ classId }: { classId: string }) {
                                                 return (
                                                     <td key={`${day}-${period.number}`} className="border border-white/10 p-2 bg-warning/5">
                                                         <div className="h-20 flex items-center justify-center text-text-muted text-xs">
-                                                            🍽️ Lunch
+                                                            Lunch
                                                         </div>
                                                     </td>
                                                 );

@@ -3,7 +3,7 @@
 // ============================================
 
 import { useState, useEffect } from 'react';
-import { Bell, Check, CheckCheck, Calendar, BookOpen, AlertCircle, Megaphone } from 'lucide-react';
+import { Bell, CheckCheck, Calendar, BookOpen, AlertCircle, Megaphone } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const API_BASE = import.meta.env.VITE_ACADEMIC_API_URL || 'http://localhost:4000/api/academic/v1';

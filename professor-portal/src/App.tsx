@@ -17,7 +17,7 @@ import Profile from './pages/Profile';
 // Protected Route Wrapper
 // ============================================
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const { isAuthenticated, isLoading, profileLoading } = useAuth();
+    const { isAuthenticated, isLoading } = useAuth();
     const location = useLocation();
 
     // Show loading only during initial auth check
