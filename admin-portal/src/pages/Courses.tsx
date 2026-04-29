@@ -2,8 +2,9 @@
 // Admin Portal - Courses Page
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Plus,
     BookOpen,
@@ -52,9 +53,8 @@ interface Course {
 
 export default function Courses() {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
-    const [courses, setCourses] = useState<Course[]>([]);
-    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,118 +67,106 @@ export default function Courses() {
         total_semesters: 8,
         degree_type: '',
     });
-    const [submitting, setSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
 
     // Fetch courses
-    useEffect(() => {
-        const fetchCourses = async () => {
-            if (!supabase) {
-                setLoading(false);
-                return;
-            }
+    const { data: courses = [], isLoading: loading } = useQuery({
+        queryKey: ['courses'],
+        queryFn: async () => {
+            if (!supabase) return [];
 
-            try {
-                const { data: coursesData, error } = await supabase
-                    .from('courses')
-                    .select('*')
-                    .order('course_name');
+            const { data: coursesData, error } = await supabase
+                .from('courses')
+                .select('*')
+                .order('course_name');
 
-                if (error) throw error;
+            if (error) throw error;
 
-                // Get branch count for each course
-                const coursesWithCounts = await Promise.all(
-                    (coursesData || []).map(async (course) => {
-                        const { count } = await supabase
-                            .from('branches')
-                            .select('id', { count: 'exact', head: true })
-                            .eq('course_id', course.id)
-                            .eq('is_active', true);
+            const coursesWithCounts = await Promise.all(
+                (coursesData || []).map(async (course) => {
+                    const { count } = await supabase
+                        .from('branches')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('course_id', course.id)
+                        .eq('is_active', true);
 
-                        return {
-                            ...course,
-                            branch_count: count || 0
-                        };
-                    })
-                );
+                    return {
+                        ...course,
+                        branch_count: count || 0
+                    };
+                })
+            );
 
-                setCourses(coursesWithCounts);
-            } catch (error) {
-                console.error('Error fetching courses:', error);
-                setErrorMessage('Failed to load courses');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchCourses();
-    }, []);
+            return coursesWithCounts as Course[];
+        }
+    });
 
     // Handle create course
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSubmitting(true);
-        setErrorMessage('');
-
-        try {
+    const createMutation = useMutation({
+        mutationFn: async (newCourse: any) => {
             const response = await fetch('http://localhost:4003/api/admin/v1/academic/courses', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(newCourse),
             });
 
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.message || 'Failed to create course');
             }
-
-            const result = await response.json();
-            setCourses([...courses, { ...result.data, branch_count: 0 }]);
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['courses'] });
             setSuccessMessage('Course created successfully!');
             setIsModalOpen(false);
             setFormData({ course_name: '', course_code: '', duration_years: 4, total_semesters: 8, degree_type: '' });
             setTimeout(() => setSuccessMessage(''), 3000);
-        } catch (error) {
-            setErrorMessage(error instanceof Error ? error.message : 'An error occurred');
-        } finally {
-            setSubmitting(false);
+        },
+        onError: (error: Error) => {
+            setErrorMessage(error.message);
         }
+    });
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setErrorMessage('');
+        createMutation.mutate(formData);
     };
 
     // Handle edit course
-    const handleEditSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!editingCourse) return;
-        setSubmitting(true);
-        setErrorMessage('');
-
-        try {
-            const response = await fetch(`http://localhost:4003/api/admin/v1/academic/courses/${editingCourse.id}`, {
+    const editMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: string, data: any }) => {
+            const response = await fetch(`http://localhost:4003/api/admin/v1/academic/courses/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(data),
             });
 
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.message || 'Failed to update course');
             }
-
-            setCourses(courses.map(c =>
-                c.id === editingCourse.id
-                    ? { ...c, ...formData }
-                    : c
-            ));
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['courses'] });
             setSuccessMessage('Course updated successfully!');
             setIsEditModalOpen(false);
             setEditingCourse(null);
             setTimeout(() => setSuccessMessage(''), 3000);
-        } catch (error) {
-            setErrorMessage(error instanceof Error ? error.message : 'An error occurred');
-        } finally {
-            setSubmitting(false);
+        },
+        onError: (error: Error) => {
+            setErrorMessage(error.message);
         }
+    });
+
+    const handleEditSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingCourse) return;
+        setErrorMessage('');
+        editMutation.mutate({ id: editingCourse.id, data: formData });
     };
 
     // Open edit modal
@@ -486,8 +474,8 @@ export default function Courses() {
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={submitting} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                <button type="submit" disabled={createMutation.isPending} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
+                                    {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Create Course
                                 </button>
                             </div>
@@ -570,8 +558,8 @@ export default function Courses() {
                                 <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={submitting} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-accent-teal to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                <button type="submit" disabled={editMutation.isPending} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-accent-teal to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
+                                    {editMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Save Changes
                                 </button>
                             </div>

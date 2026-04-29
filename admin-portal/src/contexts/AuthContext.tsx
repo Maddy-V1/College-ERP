@@ -154,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         initAuth();
 
         const { data: { subscription } } = client.auth.onAuthStateChange(
-            async (event, newSession) => {
+            async (_event, newSession) => {
                 if (mounted) {
                     setSession(newSession);
                     if (newSession?.user) {

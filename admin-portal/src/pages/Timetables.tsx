@@ -2,8 +2,9 @@
 // Admin Portal - Timetable Management
 // ============================================
 
-import { useState, useEffect } from 'react';
-import { Calendar, Clock, Plus, Save, X } from 'lucide-react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Calendar, Clock, Save, X, Loader2 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_ADMIN_API_URL || 'http://localhost:4003/api/admin/v1';
 
@@ -48,60 +49,44 @@ interface TimetableSlot {
 }
 
 export default function Timetables() {
-    const [classes, setClasses] = useState<any[]>([]);
     const [selectedClass, setSelectedClass] = useState<string>('');
-    const [classSubjects, setClassSubjects] = useState<ClassSubject[]>([]);
     const [timetableSlots, setTimetableSlots] = useState<TimetableSlot[]>([]);
     const [draggedSubject, setDraggedSubject] = useState<ClassSubject | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
+    const queryClient = useQueryClient();
     // Fetch classes
-    useEffect(() => {
-        fetchClasses();
-    }, []);
-
-    // Fetch class subjects and timetable when class is selected
-    useEffect(() => {
-        if (selectedClass) {
-            fetchClassSubjects();
-            fetchTimetable();
-        }
-    }, [selectedClass]);
-
-    const fetchClasses = async () => {
-        try {
+    const { data: classes = [] } = useQuery({
+        queryKey: ['classes'],
+        queryFn: async () => {
             const res = await fetch(`${API_BASE}/academic/classes`);
-            const data = await res.json();
-            setClasses(data);
-        } catch (error) {
-            console.error('Error fetching classes:', error);
+            if (!res.ok) throw new Error('Failed to fetch classes');
+            return res.json();
         }
-    };
+    });
 
-    const fetchClassSubjects = async () => {
-        try {
-            setIsLoading(true);
+    // Fetch class subjects
+    const { data: classSubjects = [], isLoading: isLoadingSubjects } = useQuery({
+        queryKey: ['classSubjects', selectedClass],
+        queryFn: async () => {
             const res = await fetch(`${API_BASE}/timetables/class/${selectedClass}/subjects`);
-            const data = await res.json();
-            setClassSubjects(data);
-        } catch (error) {
-            console.error('Error fetching class subjects:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+            if (!res.ok) throw new Error('Failed to fetch class subjects');
+            return res.json();
+        },
+        enabled: !!selectedClass
+    });
 
-    const fetchTimetable = async () => {
-        try {
+    // Fetch timetable
+    useQuery({
+        queryKey: ['timetable', selectedClass],
+        queryFn: async () => {
             const res = await fetch(`${API_BASE}/timetables/class/${selectedClass}`);
+            if (!res.ok) throw new Error('Failed to fetch timetable');
             const data = await res.json();
             setTimetableSlots(data.slots || []);
-        } catch (error) {
-            console.error('Error fetching timetable:', error);
-        }
-    };
+            return data;
+        },
+        enabled: !!selectedClass
+    });
 
     const handleDragStart = (subject: ClassSubject) => {
         setDraggedSubject(subject);
@@ -154,11 +139,8 @@ export default function Timetables() {
         );
     };
 
-    const handleSaveTimetable = async () => {
-        if (!selectedClass) return;
-
-        try {
-            setIsSaving(true);
+    const saveTimetableMutation = useMutation({
+        mutationFn: async () => {
             const res = await fetch(`${API_BASE}/timetables/class/${selectedClass}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -178,16 +160,22 @@ export default function Timetables() {
             });
 
             if (!res.ok) throw new Error('Failed to save timetable');
-
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['timetable', selectedClass] });
             setMessage({ type: 'success', text: 'Timetable saved successfully!' });
             setTimeout(() => setMessage(null), 3000);
-        } catch (error) {
+        },
+        onError: (error) => {
             console.error('Error saving timetable:', error);
             setMessage({ type: 'error', text: 'Failed to save timetable' });
             setTimeout(() => setMessage(null), 3000);
-        } finally {
-            setIsSaving(false);
         }
+    });
+
+    const handleSaveTimetable = () => {
+        if (!selectedClass) return;
+        saveTimetableMutation.mutate();
     };
 
     const getSlot = (day: string, period: number) => {
@@ -223,7 +211,7 @@ export default function Timetables() {
                     className="input max-w-md"
                 >
                     <option value="">-- Select a class --</option>
-                    {classes.map(cls => (
+                    {classes.map((cls: any) => (
                         <option key={cls.id} value={cls.id}>
                             {cls.courses?.name} - {cls.course_branches?.name} - {cls.section_name} ({cls.batches?.year})
                         </option>
@@ -240,11 +228,11 @@ export default function Timetables() {
                                 <h2 className="text-lg font-semibold text-text-primary">Timetable Grid</h2>
                                 <button
                                     onClick={handleSaveTimetable}
-                                    disabled={isSaving || timetableSlots.length === 0}
+                                    disabled={saveTimetableMutation.isPending || timetableSlots.length === 0}
                                     className="btn-primary flex items-center gap-2"
                                 >
-                                    <Save className="w-4 h-4" />
-                                    {isSaving ? 'Saving...' : 'Save Timetable'}
+                                    {saveTimetableMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    {saveTimetableMutation.isPending ? 'Saving...' : 'Save Timetable'}
                                 </button>
                             </div>
 
@@ -316,7 +304,7 @@ export default function Timetables() {
                     <div className="lg:col-span-1">
                         <div className="glass-card p-6 sticky top-6">
                             <h2 className="text-lg font-semibold text-text-primary mb-4">Class Subjects</h2>
-                            {isLoading ? (
+                            {isLoadingSubjects ? (
                                 <div className="text-center py-8">
                                     <div className="animate-spin w-8 h-8 border-2 border-secondary border-t-transparent rounded-full mx-auto" />
                                 </div>
@@ -324,7 +312,7 @@ export default function Timetables() {
                                 <p className="text-text-muted text-sm">No subjects assigned to this class</p>
                             ) : (
                                 <div className="space-y-2">
-                                    {classSubjects.map(subject => (
+                                    {classSubjects.map((subject: ClassSubject) => (
                                         <div
                                             key={subject.id}
                                             draggable

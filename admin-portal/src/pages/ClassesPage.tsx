@@ -1,4 +1,4 @@
-import { Plus, Search, Users, BookOpen } from 'lucide-react';
+import { Plus, Users, BookOpen } from 'lucide-react';
 
 export function ClassesPage() {
     const classes = [

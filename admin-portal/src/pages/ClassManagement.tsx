@@ -3,6 +3,7 @@
 // ============================================
 
 import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     ChevronRight,
@@ -67,34 +68,13 @@ interface Student {
     is_active: boolean;
 }
 
-interface TimetableEntry {
-    id: string;
-    day_of_week: number;
-    start_time: string;
-    end_time: string;
-    subject_name: string;
-    subject_code: string;
-    professor_name: string;
-    room_number: string;
-}
-
-interface Professor {
-    id: string;
-    employee_id: string;
-    full_name: string;
-    designation: string;
-}
-
 // ============================================
 // Tab Components
 // ============================================
 
 // Students Tab with Transfer/Edit/Delete functionality
 function StudentsTab({ classId, className: _className }: { classId: string; className: string }) {
-    const [students, setStudents] = useState<Student[]>([]);
-    const [allStudents, setAllStudents] = useState<Student[]>([]);
-    const [allClasses, setAllClasses] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
     const [searchQuery, setSearchQuery] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -112,89 +92,67 @@ function StudentsTab({ classId, className: _className }: { classId: string; clas
     });
     const [selectedClass, setSelectedClass] = useState('');
     const [transferReason, setTransferReason] = useState('');
-    const [submitting, setSubmitting] = useState(false);
 
     // Fetch students in this class
-    const fetchStudents = async () => {
-        try {
+    const { data: students = [], isLoading: loading } = useQuery({
+        queryKey: ['classStudents', classId],
+        queryFn: async () => {
             const response = await fetch(`http://localhost:4003/api/admin/v1/academic/classes/${classId}/students`);
-            if (response.ok) {
-                const result = await response.json();
-                setStudents(result.data || []);
-            }
-        } catch (error) {
-            console.error('Error fetching students:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchStudents();
-    }, [classId]);
+            if (!response.ok) throw new Error('Failed to fetch students');
+            const result = await response.json();
+            return result.data || [];
+        },
+        enabled: !!classId,
+    });
 
     // Fetch all students when add modal opens
-    useEffect(() => {
-        if (isAddModalOpen) {
-            const fetchAllStudents = async () => {
-                try {
-                    const response = await fetch('http://localhost:4003/api/admin/v1/students');
-                    if (response.ok) {
-                        const result = await response.json();
-                        setAllStudents(result.data || []);
-                    }
-                } catch (error) {
-                    console.error('Error fetching all students:', error);
-                }
-            };
-            fetchAllStudents();
-        }
-    }, [isAddModalOpen]);
+    const { data: allStudents = [] } = useQuery({
+        queryKey: ['allStudents'],
+        queryFn: async () => {
+            const response = await fetch('http://localhost:4003/api/admin/v1/students');
+            if (!response.ok) throw new Error('Failed to fetch all students');
+            const result = await response.json();
+            return result.data || [];
+        },
+        enabled: isAddModalOpen,
+    });
 
     // Fetch all classes when transfer modal opens
-    useEffect(() => {
-        if (isTransferModalOpen) {
-            const fetchClasses = async () => {
-                try {
-                    const response = await fetch('http://localhost:4003/api/admin/v1/academic/classes');
-                    if (response.ok) {
-                        const result = await response.json();
-                        // Filter out current class
-                        setAllClasses((result.data || []).filter((c: any) => c.id !== classId));
-                    }
-                } catch (error) {
-                    console.error('Error fetching classes:', error);
-                }
-            };
-            fetchClasses();
-        }
-    }, [isTransferModalOpen, classId]);
+    const { data: allClasses = [] } = useQuery({
+        queryKey: ['allClasses'],
+        queryFn: async () => {
+            const response = await fetch('http://localhost:4003/api/admin/v1/academic/classes');
+            if (!response.ok) throw new Error('Failed to fetch classes');
+            const result = await response.json();
+            return (result.data || []).filter((c: any) => c.id !== classId);
+        },
+        enabled: isTransferModalOpen,
+    });
 
-    const handleAddStudent = async () => {
-        if (!selectedStudent) return;
-        setSubmitting(true);
-        try {
+    const addStudentMutation = useMutation({
+        mutationFn: async () => {
+            if (!selectedStudent) throw new Error('No student selected');
             const response = await fetch(`http://localhost:4003/api/admin/v1/academic/classes/${classId}/students`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ student_id: selectedStudent }),
             });
-            if (response.ok) {
-                await fetchStudents();
-                setIsAddModalOpen(false);
-                setSelectedStudent('');
-            }
-        } catch (error) {
-            console.error('Error adding student:', error);
-        } finally {
-            setSubmitting(false);
+            if (!response.ok) throw new Error('Failed to add student');
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['classStudents', classId] });
+            setIsAddModalOpen(false);
+            setSelectedStudent('');
         }
+    });
+
+    const handleAddStudent = () => {
+        addStudentMutation.mutate();
     };
 
-    const handleTransferStudent = async () => {
-        if (!transferStudent || !selectedClass) return;
-        setSubmitting(true);
-        try {
+    const transferStudentMutation = useMutation({
+        mutationFn: async () => {
+            if (!transferStudent || !selectedClass) throw new Error('Missing data');
             const response = await fetch(`http://localhost:4003/api/admin/v1/academic/students/${transferStudent.id}/transfer`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -204,32 +162,36 @@ function StudentsTab({ classId, className: _className }: { classId: string; clas
                     reason: transferReason || null,
                 }),
             });
-            if (response.ok) {
-                await fetchStudents();
-                setIsTransferModalOpen(false);
-                setTransferStudent(null);
-                setSelectedClass('');
-                setTransferReason('');
-            }
-        } catch (error) {
-            console.error('Error transferring student:', error);
-        } finally {
-            setSubmitting(false);
+            if (!response.ok) throw new Error('Failed to transfer student');
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['classStudents', classId] });
+            setIsTransferModalOpen(false);
+            setTransferStudent(null);
+            setSelectedClass('');
+            setTransferReason('');
         }
+    });
+
+    const handleTransferStudent = () => {
+        transferStudentMutation.mutate();
     };
 
-    const handleRemoveStudent = async (student: Student) => {
-        if (!confirm(`Remove ${student.full_name} from this class?`)) return;
-        try {
+    const removeStudentMutation = useMutation({
+        mutationFn: async (student: Student) => {
             const response = await fetch(`http://localhost:4003/api/admin/v1/academic/classes/${classId}/students/${student.id}`, {
                 method: 'DELETE',
             });
-            if (response.ok) {
-                await fetchStudents();
-            }
-        } catch (error) {
-            console.error('Error removing student:', error);
+            if (!response.ok) throw new Error('Failed to remove student');
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['classStudents', classId] });
         }
+    });
+
+    const handleRemoveStudent = async (student: Student) => {
+        if (!confirm(`Remove ${student.full_name} from this class?`)) return;
+        removeStudentMutation.mutate(student);
     };
 
     const openTransferModal = (student: Student) => {
@@ -278,10 +240,9 @@ function StudentsTab({ classId, className: _className }: { classId: string; clas
         setIsEditModalOpen(true);
     };
 
-    const handleEditStudent = async () => {
-        if (!editingStudent) return;
-        setSubmitting(true);
-        try {
+    const editStudentMutation = useMutation({
+        mutationFn: async () => {
+            if (!editingStudent) throw new Error('No student editing');
             const response = await fetch(`http://localhost:4003/api/admin/v1/students/${editingStudent.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -294,20 +255,21 @@ function StudentsTab({ classId, className: _className }: { classId: string; clas
                     date_of_birth: editForm.date_of_birth || null,
                 }),
             });
-            if (response.ok) {
-                await fetchStudents();
-                setIsEditModalOpen(false);
-                setEditingStudent(null);
-            }
-        } catch (error) {
-            console.error('Error updating student:', error);
-        } finally {
-            setSubmitting(false);
+            if (!response.ok) throw new Error('Failed to update student');
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['classStudents', classId] });
+            setIsEditModalOpen(false);
+            setEditingStudent(null);
         }
+    });
+
+    const handleEditStudent = () => {
+        editStudentMutation.mutate();
     };
 
     const filteredStudents = students.filter(
-        (s) =>
+        (s: Student) =>
             s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             s.roll_number.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -364,7 +326,7 @@ function StudentsTab({ classId, className: _className }: { classId: string; clas
                                 </td>
                             </tr>
                         ) : (
-                            filteredStudents.map((student) => (
+                            filteredStudents.map((student: Student) => (
                                 <tr key={student.id} className="border-b border-white/5 hover:bg-white/5">
                                     <td className="p-4 font-mono text-sm text-accent-teal">{student.roll_number}</td>
                                     <td className="p-4">
@@ -432,7 +394,7 @@ function StudentsTab({ classId, className: _className }: { classId: string; clas
                                     className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
                                 >
                                     <option value="">Select a student...</option>
-                                    {allStudents.map((s) => (
+                                    {allStudents.map((s: Student) => (
                                         <option key={s.id} value={s.id}>{s.roll_number} - {s.full_name}</option>
                                     ))}
                                 </select>
@@ -447,10 +409,10 @@ function StudentsTab({ classId, className: _className }: { classId: string; clas
                                 </button>
                                 <button
                                     onClick={handleAddStudent}
-                                    disabled={submitting || !selectedStudent}
+                                    disabled={addStudentMutation.isPending || !selectedStudent}
                                     className="flex-1 px-4 py-2.5 bg-gradient-to-r from-accent-teal to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    {addStudentMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Add Student
                                 </button>
                             </div>
@@ -483,7 +445,7 @@ function StudentsTab({ classId, className: _className }: { classId: string; clas
                                     className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
                                 >
                                     <option value="">Select a class...</option>
-                                    {allClasses.map((c) => (
+                                    {allClasses.map((c: any) => (
                                         <option key={c.id} value={c.id}>
                                             {c.class_label} - {c.branches?.branch_name || ''} ({c.batches?.batch_year || ''})
                                         </option>
@@ -510,10 +472,10 @@ function StudentsTab({ classId, className: _className }: { classId: string; clas
                                 </button>
                                 <button
                                     onClick={handleTransferStudent}
-                                    disabled={submitting || !selectedClass}
+                                    disabled={transferStudentMutation.isPending || !selectedClass}
                                     className="flex-1 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    {transferStudentMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Transfer
                                 </button>
                             </div>
@@ -647,10 +609,10 @@ function StudentsTab({ classId, className: _className }: { classId: string; clas
                                 </button>
                                 <button
                                     onClick={handleEditStudent}
-                                    disabled={submitting || !editForm.full_name.trim()}
+                                    disabled={editStudentMutation.isPending || !editForm.full_name.trim()}
                                     className="flex-1 px-4 py-2.5 bg-gradient-to-r from-accent-teal to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    {editStudentMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Save Changes
                                 </button>
                             </div>
@@ -664,113 +626,90 @@ function StudentsTab({ classId, className: _className }: { classId: string; clas
 
 // Subjects Tab with Professor Assignment
 function SubjectsTab({ classId, semester }: { classId: string; semester: number }) {
-    const [subjects, setSubjects] = useState<any[]>([]);
-    const [allSubjects, setAllSubjects] = useState<any[]>([]);
-    const [allProfessors, setAllProfessors] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isProfessorModalOpen, setIsProfessorModalOpen] = useState(false);
     const [selectedSubject, setSelectedSubject] = useState('');
     const [selectedClassSubject, setSelectedClassSubject] = useState<any>(null);
     const [selectedProfessor, setSelectedProfessor] = useState('');
-    const [submitting, setSubmitting] = useState(false);
 
     // Fetch class subjects
-    const fetchSubjects = async () => {
-        try {
+    const { data: subjects = [], isLoading: loading } = useQuery({
+        queryKey: ['classSubjects', classId, semester],
+        queryFn: async () => {
             const response = await fetch(`http://localhost:4003/api/admin/v1/academic/classes/${classId}/subjects`);
-            if (response.ok) {
-                const result = await response.json();
-                setSubjects(result.data || []);
-            }
-        } catch (error) {
-            console.error('Error fetching subjects:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchSubjects();
-    }, [classId, semester]);
+            if (!response.ok) throw new Error('Failed to fetch subjects');
+            const result = await response.json();
+            return result.data || [];
+        },
+        enabled: !!classId && !!semester,
+    });
 
     // Fetch all subjects when add modal opens
-    useEffect(() => {
-        if (isAddModalOpen) {
-            const fetchAllSubjects = async () => {
-                try {
-                    const response = await fetch('http://localhost:4003/api/admin/v1/academic/subjects');
-                    if (response.ok) {
-                        const result = await response.json();
-                        setAllSubjects(result.data || []);
-                    }
-                } catch (error) {
-                    console.error('Error fetching all subjects:', error);
-                }
-            };
-            fetchAllSubjects();
-        }
-    }, [isAddModalOpen]);
+    const { data: allSubjects = [] } = useQuery({
+        queryKey: ['allSubjects'],
+        queryFn: async () => {
+            const response = await fetch('http://localhost:4003/api/admin/v1/academic/subjects');
+            if (!response.ok) throw new Error('Failed to fetch all subjects');
+            const result = await response.json();
+            return result.data || [];
+        },
+        enabled: isAddModalOpen,
+    });
 
     // Fetch all professors when professor modal opens
-    useEffect(() => {
-        if (isProfessorModalOpen) {
-            const fetchProfessors = async () => {
-                try {
-                    const response = await fetch('http://localhost:4003/api/admin/v1/professors');
-                    if (response.ok) {
-                        const result = await response.json();
-                        setAllProfessors(result.data || []);
-                    }
-                } catch (error) {
-                    console.error('Error fetching professors:', error);
-                }
-            };
-            fetchProfessors();
-        }
-    }, [isProfessorModalOpen]);
+    const { data: allProfessors = [] } = useQuery({
+        queryKey: ['allProfessors'],
+        queryFn: async () => {
+            const response = await fetch('http://localhost:4003/api/admin/v1/professors');
+            if (!response.ok) throw new Error('Failed to fetch professors');
+            const result = await response.json();
+            return result.data || [];
+        },
+        enabled: isProfessorModalOpen,
+    });
 
-    const handleAssignSubject = async () => {
-        if (!selectedSubject) return;
-        setSubmitting(true);
-        try {
+    const assignSubjectMutation = useMutation({
+        mutationFn: async () => {
+            if (!selectedSubject) throw new Error('Missing subject');
             const response = await fetch(`http://localhost:4003/api/admin/v1/academic/classes/${classId}/subjects`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ subject_id: selectedSubject }),
             });
-            if (response.ok) {
-                await fetchSubjects();
-                setIsAddModalOpen(false);
-                setSelectedSubject('');
-            }
-        } catch (error) {
-            console.error('Error assigning subject:', error);
-        } finally {
-            setSubmitting(false);
+            if (!response.ok) throw new Error('Failed to assign subject');
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['classSubjects', classId, semester] });
+            setIsAddModalOpen(false);
+            setSelectedSubject('');
         }
+    });
+
+    const handleAssignSubject = () => {
+        assignSubjectMutation.mutate();
     };
 
-    const handleAssignProfessor = async () => {
-        if (!selectedClassSubject) return;
-        setSubmitting(true);
-        try {
+    const assignProfessorMutation = useMutation({
+        mutationFn: async () => {
+            if (!selectedClassSubject) throw new Error('Missing class subject');
             const response = await fetch(`http://localhost:4003/api/admin/v1/academic/classes/${classId}/subjects/${selectedClassSubject.subject_id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ professor_id: selectedProfessor || null }),
             });
-            if (response.ok) {
-                await fetchSubjects();
-                setIsProfessorModalOpen(false);
-                setSelectedClassSubject(null);
-                setSelectedProfessor('');
-            }
-        } catch (error) {
-            console.error('Error assigning professor:', error);
-        } finally {
-            setSubmitting(false);
+            if (!response.ok) throw new Error('Failed to assign professor');
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['classSubjects', classId, semester] });
+            setIsProfessorModalOpen(false);
+            setSelectedClassSubject(null);
+            setSelectedProfessor('');
         }
+    });
+
+    const handleAssignProfessor = () => {
+        assignProfessorMutation.mutate();
     };
 
     const openProfessorModal = (subject: any) => {
@@ -783,7 +722,7 @@ function SubjectsTab({ classId, semester }: { classId: string; semester: number 
         <div className="space-y-4">
             <div className="flex justify-between items-center">
                 <p className="text-text-secondary">
-                    Semester {semester} • {subjects.length} subjects • {subjects.reduce((acc, s) => acc + (s.credits || 0), 0)} credits
+                    Semester {semester} • {subjects.length} subjects • {subjects.reduce((acc: number, s: any) => acc + (s.credits || 0), 0)} credits
                 </p>
                 <button
                     onClick={() => setIsAddModalOpen(true)}
@@ -826,7 +765,7 @@ function SubjectsTab({ classId, semester }: { classId: string; semester: number 
                             </tr>
                         </thead>
                         <tbody>
-                            {subjects.map((subject) => (
+                            {subjects.map((subject: any) => (
                                 <tr key={subject.id} className="border-b border-white/5 hover:bg-white/5">
                                     <td className="p-4 font-mono text-sm text-primary">{subject.subject_code}</td>
                                     <td className="p-4">
@@ -891,7 +830,7 @@ function SubjectsTab({ classId, semester }: { classId: string; semester: number 
                                     className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
                                 >
                                     <option value="">Select a subject...</option>
-                                    {allSubjects.map((s) => (
+                                    {allSubjects.map((s: any) => (
                                         <option key={s.id} value={s.id}>{s.subject_code} - {s.subject_name}</option>
                                     ))}
                                 </select>
@@ -909,10 +848,10 @@ function SubjectsTab({ classId, semester }: { classId: string; semester: number 
                                 </button>
                                 <button
                                     onClick={handleAssignSubject}
-                                    disabled={submitting || !selectedSubject}
+                                    disabled={assignSubjectMutation.isPending || !selectedSubject}
                                     className="flex-1 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    {assignSubjectMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Add Subject
                                 </button>
                             </div>
@@ -945,7 +884,7 @@ function SubjectsTab({ classId, semester }: { classId: string; semester: number 
                                     className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
                                 >
                                     <option value="">No professor (unassign)</option>
-                                    {allProfessors.map((p) => (
+                                    {allProfessors.map((p: any) => (
                                         <option key={p.id} value={p.id}>
                                             {p.full_name} - {p.designation || 'Professor'}
                                         </option>
@@ -962,10 +901,10 @@ function SubjectsTab({ classId, semester }: { classId: string; semester: number 
                                 </button>
                                 <button
                                     onClick={handleAssignProfessor}
-                                    disabled={submitting}
+                                    disabled={assignProfessorMutation.isPending}
                                     className="flex-1 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    {assignProfessorMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                                     {selectedProfessor ? 'Assign Professor' : 'Remove Assignment'}
                                 </button>
                             </div>
@@ -980,7 +919,7 @@ function SubjectsTab({ classId, semester }: { classId: string; semester: number 
 // Timetable Tab with Drag & Drop
 function TimetableTab({ classId }: { classId: string }) {
     const API_BASE = import.meta.env.VITE_ADMIN_API_URL || 'http://localhost:4003/api/admin/v1';
-    
+
     const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const DAY_LABELS: Record<string, string> = {
         monday: 'Monday',
@@ -1022,56 +961,38 @@ function TimetableTab({ classId }: { classId: string }) {
         class_subjects?: ClassSubject;
     }
 
-    const [classSubjects, setClassSubjects] = useState<ClassSubject[]>([]);
+    const queryClient = useQueryClient();
     const [timetableSlots, setTimetableSlots] = useState<TimetableSlot[]>([]);
     const [draggedSubject, setDraggedSubject] = useState<ClassSubject | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-    useEffect(() => {
-        if (classId) {
-            fetchClassSubjects();
-            fetchTimetable();
-        }
-    }, [classId]);
-
-    const fetchClassSubjects = async () => {
-        try {
+    const { data: classSubjects = [] } = useQuery({
+        queryKey: ['classSubjectsTimetable', classId],
+        queryFn: async () => {
             const res = await fetch(`${API_BASE}/timetables/class/${classId}/subjects`);
-            if (!res.ok) {
-                console.error('Failed to fetch class subjects:', res.status, res.statusText);
-                setClassSubjects([]);
-                return;
-            }
+            if (!res.ok) throw new Error('Failed to fetch class subjects');
             const data = await res.json();
-            console.log('Fetched class subjects:', data);
-            setClassSubjects(Array.isArray(data) ? data : []);
-        } catch (error) {
-            console.error('Error fetching class subjects:', error);
-            setClassSubjects([]);
-        }
-    };
+            return Array.isArray(data) ? data : [];
+        },
+        enabled: !!classId,
+    });
 
-    const fetchTimetable = async () => {
-        try {
-            setLoading(true);
+    const { data: fetchedTimetable, isLoading: loading } = useQuery({
+        queryKey: ['timetable', classId],
+        queryFn: async () => {
             const res = await fetch(`${API_BASE}/timetables/class/${classId}`);
-            if (!res.ok) {
-                console.error('Failed to fetch timetable:', res.status, res.statusText);
-                setTimetableSlots([]);
-                return;
-            }
+            if (!res.ok) throw new Error('Failed to fetch timetable');
             const data = await res.json();
-            console.log('Fetched timetable:', data);
-            setTimetableSlots(Array.isArray(data.slots) ? data.slots : []);
-        } catch (error) {
-            console.error('Error fetching timetable:', error);
-            setTimetableSlots([]);
-        } finally {
-            setLoading(false);
+            return data;
+        },
+        enabled: !!classId,
+    });
+
+    useEffect(() => {
+        if (fetchedTimetable) {
+            setTimetableSlots(Array.isArray(fetchedTimetable.slots) ? fetchedTimetable.slots : []);
         }
-    };
+    }, [fetchedTimetable]);
 
     const handleDragStart = (subject: ClassSubject) => {
         setDraggedSubject(subject);
@@ -1121,9 +1042,8 @@ function TimetableTab({ classId }: { classId: string }) {
         );
     };
 
-    const handleSaveTimetable = async () => {
-        try {
-            setIsSaving(true);
+    const saveTimetableMutation = useMutation({
+        mutationFn: async () => {
             const res = await fetch(`${API_BASE}/timetables/class/${classId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1143,16 +1063,20 @@ function TimetableTab({ classId }: { classId: string }) {
             });
 
             if (!res.ok) throw new Error('Failed to save timetable');
-
+        },
+        onSuccess: () => {
             setMessage({ type: 'success', text: 'Timetable saved successfully!' });
             setTimeout(() => setMessage(null), 3000);
-        } catch (error) {
-            console.error('Error saving timetable:', error);
+            queryClient.invalidateQueries({ queryKey: ['timetable', classId] });
+        },
+        onError: () => {
             setMessage({ type: 'error', text: 'Failed to save timetable' });
             setTimeout(() => setMessage(null), 3000);
-        } finally {
-            setIsSaving(false);
         }
+    });
+
+    const handleSaveTimetable = () => {
+        saveTimetableMutation.mutate();
     };
 
     const getSlot = (day: string, period: number) => {
@@ -1182,11 +1106,11 @@ function TimetableTab({ classId }: { classId: string }) {
                         <p className="text-text-secondary">Drag subjects from the panel to create timetable</p>
                         <button
                             onClick={handleSaveTimetable}
-                            disabled={isSaving || timetableSlots.length === 0}
+                            disabled={saveTimetableMutation.isPending || timetableSlots.length === 0}
                             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-accent-orange to-secondary text-white font-semibold rounded-lg disabled:opacity-50"
                         >
                             <CheckCircle className="w-4 h-4" />
-                            {isSaving ? 'Saving...' : 'Save Timetable'}
+                            {saveTimetableMutation.isPending ? 'Saving...' : 'Save Timetable'}
                         </button>
                     </div>
 
@@ -1236,7 +1160,7 @@ function TimetableTab({ classId }: { classId: string }) {
                                                     </td>
                                                 );
                                             }
-                                            
+
                                             const slot = getSlot(day, period.number as number);
                                             return (
                                                 <td
@@ -1315,29 +1239,21 @@ function TimetableTab({ classId }: { classId: string }) {
 
 // Class Representative Tab
 function CRTab({ classId, currentCR }: { classId: string; currentCR?: { id: string; name: string } }) {
-    const [students, setStudents] = useState<Student[]>([]);
     const [selectedStudent, setSelectedStudent] = useState<string>(currentCR?.id || '');
-    const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        const fetchStudents = async () => {
-            try {
-                const response = await fetch(`http://localhost:4003/api/admin/v1/academic/classes/${classId}/students`);
-                if (response.ok) {
-                    const result = await response.json();
-                    setStudents(result.data || []);
-                }
-            } catch (error) {
-                console.error('Error fetching students for CR:', error);
-            }
-        };
-        fetchStudents();
-    }, [classId]);
+    const { data: students = [] } = useQuery({
+        queryKey: ['classStudents', classId],
+        queryFn: async () => {
+            const response = await fetch(`http://localhost:4003/api/admin/v1/academic/classes/${classId}/students`);
+            if (!response.ok) throw new Error('Failed to fetch students');
+            const result = await response.json();
+            return result.data || [];
+        }
+    });
 
-    const handleSave = async () => {
-        if (!selectedStudent) return;
-        setSaving(true);
-        try {
+    const updateCRMutation = useMutation({
+        mutationFn: async () => {
+            if (!selectedStudent) throw new Error('No student selected');
             const response = await fetch(`http://localhost:4003/api/admin/v1/academic/classes/${classId}/representatives`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1346,20 +1262,22 @@ function CRTab({ classId, currentCR }: { classId: string; currentCR?: { id: stri
                     representative_type: 'CR'
                 })
             });
-            if (response.ok) {
-                alert('CR updated successfully!');
-                // Reload the page to show updated data
-                window.location.reload();
-            } else {
+            if (!response.ok) {
                 const error = await response.json();
-                alert(`Error: ${error.message || 'Failed to update CR'}`);
+                throw new Error(error.message || 'Failed to update CR');
             }
-        } catch (error) {
-            console.error('Error saving CR:', error);
-            alert('Failed to update CR');
-        } finally {
-            setSaving(false);
+        },
+        onSuccess: () => {
+            alert('CR updated successfully!');
+            window.location.reload();
+        },
+        onError: (error: Error) => {
+            alert(`Error: ${error.message}`);
         }
+    });
+
+    const handleSave = () => {
+        updateCRMutation.mutate();
     };
 
     return (
@@ -1390,7 +1308,7 @@ function CRTab({ classId, currentCR }: { classId: string; currentCR?: { id: stri
                         className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
                     >
                         <option value="">Select a student...</option>
-                        {students.map((student) => (
+                        {students.map((student: Student) => (
                             <option key={student.id} value={student.id}>
                                 {student.roll_number} - {student.full_name}
                             </option>
@@ -1401,10 +1319,10 @@ function CRTab({ classId, currentCR }: { classId: string; currentCR?: { id: stri
                 <div className="mt-6 flex gap-3">
                     <button
                         onClick={handleSave}
-                        disabled={!selectedStudent || saving}
+                        disabled={!selectedStudent || updateCRMutation.isPending}
                         className="flex-1 px-4 py-2.5 bg-gradient-to-r from-accent-orange to-secondary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                        {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                        {updateCRMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                         Update CR
                     </button>
                     {currentCR && (
@@ -1420,29 +1338,21 @@ function CRTab({ classId, currentCR }: { classId: string; currentCR?: { id: stri
 
 // Class In-Charge Tab
 function InChargeTab({ classId, currentInCharge }: { classId: string; currentInCharge?: { id: string; name: string } }) {
-    const [professors, setProfessors] = useState<Professor[]>([]);
     const [selectedProfessor, setSelectedProfessor] = useState<string>(currentInCharge?.id || '');
-    const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        const fetchProfessors = async () => {
-            try {
-                const response = await fetch('http://localhost:4003/api/admin/v1/professors');
-                if (response.ok) {
-                    const result = await response.json();
-                    setProfessors(result.data || []);
-                }
-            } catch (error) {
-                console.error('Error fetching professors:', error);
-            }
-        };
-        fetchProfessors();
-    }, [classId]);
+    const { data: professors = [] } = useQuery({
+        queryKey: ['allProfessors'],
+        queryFn: async () => {
+            const response = await fetch('http://localhost:4003/api/admin/v1/professors');
+            if (!response.ok) throw new Error('Failed to fetch professors');
+            const result = await response.json();
+            return result.data || [];
+        }
+    });
 
-    const handleSave = async () => {
-        if (!selectedProfessor) return;
-        setSaving(true);
-        try {
+    const updateInChargeMutation = useMutation({
+        mutationFn: async () => {
+            if (!selectedProfessor) throw new Error('No professor selected');
             const response = await fetch(`http://localhost:4003/api/admin/v1/academic/classes/${classId}/teacher`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -1450,20 +1360,22 @@ function InChargeTab({ classId, currentInCharge }: { classId: string; currentInC
                     professor_id: selectedProfessor
                 })
             });
-            if (response.ok) {
-                alert('Class In-Charge updated successfully!');
-                // Reload the page to show updated data
-                window.location.reload();
-            } else {
+            if (!response.ok) {
                 const error = await response.json();
-                alert(`Error: ${error.message || 'Failed to update In-Charge'}`);
+                throw new Error(error.message || 'Failed to update In-Charge');
             }
-        } catch (error) {
-            console.error('Error saving In-Charge:', error);
-            alert('Failed to update In-Charge');
-        } finally {
-            setSaving(false);
+        },
+        onSuccess: () => {
+            alert('Class In-Charge updated successfully!');
+            window.location.reload();
+        },
+        onError: (error: Error) => {
+            alert(`Error: ${error.message}`);
         }
+    });
+
+    const handleSave = () => {
+        updateInChargeMutation.mutate();
     };
 
     return (
@@ -1494,7 +1406,7 @@ function InChargeTab({ classId, currentInCharge }: { classId: string; currentInC
                         className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
                     >
                         <option value="">Select a professor...</option>
-                        {professors.map((prof) => (
+                        {professors.map((prof: any) => (
                             <option key={prof.id} value={prof.id}>
                                 {prof.full_name} - {prof.designation}
                             </option>
@@ -1505,10 +1417,10 @@ function InChargeTab({ classId, currentInCharge }: { classId: string; currentInC
                 <div className="mt-6 flex gap-3">
                     <button
                         onClick={handleSave}
-                        disabled={!selectedProfessor || saving}
+                        disabled={!selectedProfessor || updateInChargeMutation.isPending}
                         className="flex-1 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                        {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                        {updateInChargeMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                         Update In-Charge
                     </button>
                     {currentInCharge && (

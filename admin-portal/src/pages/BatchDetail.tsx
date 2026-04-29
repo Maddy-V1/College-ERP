@@ -2,7 +2,8 @@
 // Admin Portal - Batch Detail Page
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     Plus,
@@ -69,23 +70,12 @@ export default function BatchDetail() {
     const { batchId } = useParams<{ batchId: string }>();
     const navigate = useNavigate();
 
-    const [batch, setBatch] = useState<Batch | null>(null);
-
-    // Grouped Data
-    const [courses, setCourses] = useState<Course[]>([]);
-    const [branchesByCourse, setBranchesByCourse] = useState<Record<string, Branch[]>>({});
-    const [classesByBranch, setClassesByBranch] = useState<Record<string, Class[]>>({});
-
     // Accordion State: { [courseId]: boolean }
     const [expandedCourses, setExpandedCourses] = useState<Record<string, boolean>>({});
-
-    // Linking Data
-    const [allCourses, setAllCourses] = useState<Course[]>([]);
     // const [allBranches, setAllBranches] = useState<Branch[]>([]);
 
-    const [loading, setLoading] = useState(true);
-
-    // Modals
+    // Forms
+    const queryClient = useQueryClient();
     const [isLinkCourseModalOpen, setIsLinkCourseModalOpen] = useState(false);
     // const [isLinkBranchModalOpen, setIsLinkBranchModalOpen] = useState(false);
     const [isCreateBranchModalOpen, setIsCreateBranchModalOpen] = useState(false);
@@ -102,123 +92,124 @@ export default function BatchDetail() {
         branch_code: ''
     });
 
-    const [submitting, setSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
 
     // Fetch Data
-    useEffect(() => {
-        const fetchData = async () => {
-            if (!supabase || !batchId) return;
+    const { data, isLoading: loading } = useQuery({
+        queryKey: ['batchDetail', batchId],
+        queryFn: async () => {
+            if (!supabase || !batchId) return {};
 
-            try {
-                // 1. Fetch Batch
-                const { data: batchData, error: batchError } = await supabase
-                    .from('batches').select('*').eq('id', batchId).single();
-                if (batchError) throw batchError;
-                setBatch(batchData);
+            // 1. Fetch Batch
+            const { data: batchData, error: batchError } = await supabase
+                .from('batches').select('*').eq('id', batchId).single();
+            if (batchError) throw batchError;
 
-                // 2. Fetch Linked Courses
-                const { data: bcData } = await supabase
-                    .from('batch_courses')
-                    .select('course_id, courses(*)')
-                    .eq('batch_id', batchId)
-                    .eq('is_active', true);
+            // 2. Fetch Linked Courses
+            const { data: bcData } = await supabase
+                .from('batch_courses')
+                .select('course_id, courses(*)')
+                .eq('batch_id', batchId)
+                .eq('is_active', true);
 
-                const linkedC = (bcData || []).map((item: any) => item.courses).filter((c: any) => !!c) as Course[];
-                setCourses(linkedC);
+            const linkedC = (bcData || []).map((item: any) => item.courses).filter((c: any) => !!c) as Course[];
 
-                // Default expand all
-                const expanded: Record<string, boolean> = {};
-                linkedC.forEach((c: Course) => expanded[c.id] = true);
-                setExpandedCourses(expanded);
+            // Default expand all
+            const expanded: Record<string, boolean> = {};
+            linkedC.forEach((c: Course) => expanded[c.id] = true);
+            setExpandedCourses(expanded);
 
-                // 3. Fetch Linked Branches
-                const { data: bbData } = await supabase
-                    .from('batch_branches')
-                    .select('branch_id, branches(*, courses(id, course_name, course_code))')
-                    .eq('batch_id', batchId)
-                    .eq('is_active', true);
+            // 3. Fetch Linked Branches
+            const { data: bbData } = await supabase
+                .from('batch_branches')
+                .select('branch_id, branches(*, courses(id, course_name, course_code))')
+                .eq('batch_id', batchId)
+                .eq('is_active', true);
 
-                const linkedB = (bbData || []).map((item: any) => item.branches).filter((b: any) => !!b) as Branch[];
+            const linkedB = (bbData || []).map((item: any) => item.branches).filter((b: any) => !!b) as Branch[];
 
-                // Group Branches by Course
-                const bByC: Record<string, Branch[]> = {};
-                linkedC.forEach((c: Course) => bByC[c.id] = []);
-                linkedB.forEach((b: Branch) => {
-                    if (bByC[b.course_id]) {
-                        bByC[b.course_id].push(b);
-                    } else {
-                        // Handle orphan branches (course not linked explicitly but branch is)?
-                        // Should technically link course if branch is linked, but maybe not enforced.
-                        if (!bByC['orphan']) bByC['orphan'] = [];
-                        bByC['orphan'].push(b);
-                    }
-                });
-                setBranchesByCourse(bByC);
+            // Group Branches by Course
+            const bByC: Record<string, Branch[]> = {};
+            linkedC.forEach((c: Course) => bByC[c.id] = []);
+            linkedB.forEach((b: Branch) => {
+                if (bByC[b.course_id]) {
+                    bByC[b.course_id]!.push(b);
+                } else {
+                    if (!bByC['orphan']) bByC['orphan'] = [];
+                    bByC['orphan']!.push(b);
+                }
+            });
 
-                // 4. Fetch Classes
-                const { data: classesData } = await supabase
-                    .from('classes')
-                    .select('*')
-                    .eq('batch_id', batchId)
-                    .eq('is_active', true)
-                    .order('class_label');
+            // 4. Fetch Classes
+            const { data: classesData } = await supabase
+                .from('classes')
+                .select('*')
+                .eq('batch_id', batchId)
+                .eq('is_active', true)
+                .order('class_label');
 
-                const cByB: Record<string, Class[]> = {};
-                linkedB.forEach((b: Branch) => cByB[b.id] = []);
-                (classesData || []).forEach((cls: Class) => {
-                    if (cByB[cls.branch_id]) {
-                        cByB[cls.branch_id]!.push(cls);
-                    }
-                });
-                setClassesByBranch(cByB);
+            const cByB: Record<string, Class[]> = {};
+            linkedB.forEach((b: Branch) => cByB[b.id] = []);
+            (classesData || []).forEach((cls: Class) => {
+                if (cByB[cls.branch_id]) {
+                    cByB[cls.branch_id]?.push(cls);
+                }
+            });
 
-                // 5. Fetch available data for linking
-                const { data: allC } = await supabase.from('courses').select('*').eq('is_active', true).order('course_name');
-                setAllCourses(allC || []);
+            // 5. Fetch available data for linking
+            const { data: allC } = await supabase.from('courses').select('*').eq('is_active', true).order('course_name');
 
-                // const { data: allB } = await supabase.from('branches').select('*, courses(course_name, course_code)').eq('is_active', true).order('branch_name');
-                // setAllBranches(allB || []);
+            return {
+                batchData,
+                linkedC,
+                branchesByCourse: bByC,
+                classesByBranch: cByB,
+                allC: allC || []
+            };
+        },
+        enabled: !!batchId
+    });
 
-            } catch (error) {
-                console.error(error);
-                setErrorMessage('Failed to load details');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, [batchId]);
+    const batch = data?.batchData as Batch | undefined;
+    const courses = (data?.linkedC as Course[]) || [];
+    const branchesByCourseMap = (data?.branchesByCourse as Record<string, Branch[]>) || {};
+    const classesByBranchMap = (data?.classesByBranch as Record<string, Class[]>) || {};
+    const allCoursesList = (data?.allC as Course[]) || [];
 
     // Handlers
     const toggleCourse = (courseId: string) => {
         setExpandedCourses(prev => ({ ...prev, [courseId]: !prev[courseId] }));
     };
 
-    const handleLinkCourse = async () => {
-        if (!supabase || !batchId || !selectedCourseId) return;
-        setSubmitting(true);
-        try {
+    const linkCourseMutation = useMutation({
+        mutationFn: async () => {
+            if (!supabase || !batchId || !selectedCourseId) throw new Error('Missing data');
             const { error } = await supabase.from('batch_courses').insert({ batch_id: batchId, course_id: selectedCourseId });
             if (error && error.code !== '23505') throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['batchDetail', batchId] });
             setSuccessMessage('Course linked!');
             setIsLinkCourseModalOpen(false);
-            window.location.reload();
-        } catch (error) {
+            setTimeout(() => setSuccessMessage(''), 3000);
+        },
+        onError: () => {
             setErrorMessage('Failed to link course');
-        } finally {
-            setSubmitting(false);
+            setTimeout(() => setErrorMessage(''), 3000);
         }
+    });
+
+    const handleLinkCourse = () => {
+        if (!selectedCourseId) return;
+        linkCourseMutation.mutate();
     };
 
 
 
-    const handleCreateBranch = async () => {
-        if (!supabase || !batchId || !createBranchData.course_id || !createBranchData.branch_name) return;
-        setSubmitting(true);
-        try {
+    const createBranchMutation = useMutation({
+        mutationFn: async () => {
+            if (!supabase || !batchId || !createBranchData.course_id || !createBranchData.branch_name) throw new Error('Missing data');
             const { data: newBranch, error: bError } = await supabase.from('branches').insert({
                 branch_name: createBranchData.branch_name,
                 branch_code: createBranchData.branch_code,
@@ -231,21 +222,28 @@ export default function BatchDetail() {
                 batch_id: batchId,
                 branch_id: newBranch.id
             });
-
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['batchDetail', batchId] });
             setSuccessMessage('Branch created & linked!');
             setIsCreateBranchModalOpen(false);
-            window.location.reload();
-        } catch (error) {
+            setCreateBranchData({ course_id: '', branch_name: '', branch_code: '' });
+            setTimeout(() => setSuccessMessage(''), 3000);
+        },
+        onError: () => {
             setErrorMessage('Failed to create branch');
-        } finally {
-            setSubmitting(false);
+            setTimeout(() => setErrorMessage(''), 3000);
         }
-    }
+    });
 
-    const handleCreateClass = async () => {
-        if (!supabase || !batchId || !targetBranchId || !classLabel) return;
-        setSubmitting(true);
-        try {
+    const handleCreateBranch = () => {
+        if (!createBranchData.course_id || !createBranchData.branch_name) return;
+        createBranchMutation.mutate();
+    };
+
+    const createClassMutation = useMutation({
+        mutationFn: async () => {
+            if (!supabase || !batchId || !targetBranchId || !classLabel) throw new Error('Missing data');
             const { error } = await supabase.from('classes').insert({
                 class_label: classLabel,
                 batch_id: batchId,
@@ -254,14 +252,23 @@ export default function BatchDetail() {
                 current_strength: 0
             });
             if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['batchDetail', batchId] });
             setSuccessMessage('Class created!');
             setIsCreateClassModalOpen(false);
-            window.location.reload();
-        } catch (error) {
+            setClassLabel('');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        },
+        onError: () => {
             setErrorMessage('Failed to create class');
-        } finally {
-            setSubmitting(false);
+            setTimeout(() => setErrorMessage(''), 3000);
         }
+    });
+
+    const handleCreateClass = () => {
+        if (!targetBranchId || !classLabel) return;
+        createClassMutation.mutate();
     };
 
     // Helpers
@@ -270,13 +277,13 @@ export default function BatchDetail() {
         setTargetBranchId(branchId);
         // Find branch across all groups
         let branch: Branch | undefined;
-        Object.values(branchesByCourse).forEach(list => {
+        Object.values(branchesByCourseMap).forEach(list => {
             const found = list.find(b => b.id === branchId);
             if (found) branch = found;
         });
 
         if (branch) {
-            const existingCount = (classesByBranch[branch.id] || []).length;
+            const existingCount = (classesByBranchMap[branch.id] || []).length;
             const sectionChar = String.fromCharCode(65 + existingCount); // A, B, C...
             setClassLabel(`${batch?.batch_year || ''}-${branch.branch_code}-${sectionChar}`);
         }
@@ -284,7 +291,7 @@ export default function BatchDetail() {
     };
 
     const getBranchName = (id: string) => {
-        for (const list of Object.values(branchesByCourse)) {
+        for (const list of Object.values(branchesByCourseMap)) {
             const b = list.find(b => b.id === id);
             if (b) return b.branch_name;
         }
@@ -381,13 +388,13 @@ export default function BatchDetail() {
                             {/* Accordion Content */}
                             {expandedCourses[course.id] && (
                                 <div className="p-4 border-t border-white/10 bg-black/10">
-                                    {(!branchesByCourse[course.id] || branchesByCourse[course.id].length === 0) ? (
+                                    {(!branchesByCourseMap[course.id] || branchesByCourseMap[course.id]?.length === 0) ? (
                                         <div className="text-center py-8 text-text-muted text-sm">
                                             No branches linked to this course in this batch.
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                            {branchesByCourse[course.id].map(branch => (
+                                            {branchesByCourseMap[course.id]?.map(branch => (
                                                 <div key={branch.id} className="bg-bg-tertiary border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all">
                                                     <div className="flex items-start justify-between mb-4">
                                                         <div className="flex items-center gap-3">
@@ -408,9 +415,9 @@ export default function BatchDetail() {
                                                     </div>
 
                                                     <div className="space-y-2">
-                                                        {(classesByBranch[branch.id] || []).length > 0 ? (
+                                                        {(classesByBranchMap[branch.id] || []).length > 0 ? (
                                                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                                                {(classesByBranch[branch.id] || []).map(cls => (
+                                                                {(classesByBranchMap[branch.id] || []).map(cls => (
                                                                     <div
                                                                         key={cls.id}
                                                                         onClick={() => navigate(`/classes/${cls.id}`)}
@@ -451,12 +458,12 @@ export default function BatchDetail() {
                             className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg mb-4 text-text-primary"
                         >
                             <option value="">Select Course...</option>
-                            {allCourses.filter(c => !courses.find(lc => lc.id === c.id)).map(c => (
+                            {allCoursesList.filter(c => !courses.find(lc => lc.id === c.id)).map(c => (
                                 <option key={c.id} value={c.id}>{c.course_name}</option>
                             ))}
                         </select>
-                        <button onClick={handleLinkCourse} disabled={submitting} className="w-full p-2.5 bg-primary text-white rounded-lg disabled:opacity-50">
-                            {submitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Link Course'}
+                        <button onClick={handleLinkCourse} disabled={linkCourseMutation.isPending} className="w-full p-2.5 bg-primary text-white rounded-lg disabled:opacity-50">
+                            {linkCourseMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Link Course'}
                         </button>
                     </div>
                 </div>
@@ -493,8 +500,8 @@ export default function BatchDetail() {
                                 onChange={(e) => setCreateBranchData({ ...createBranchData, branch_code: e.target.value.toUpperCase() })}
                                 className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary"
                             />
-                            <button onClick={handleCreateBranch} disabled={submitting} className="w-full p-2.5 bg-primary text-white rounded-lg disabled:opacity-50">
-                                {submitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Create & Link'}
+                            <button onClick={handleCreateBranch} disabled={createBranchMutation.isPending} className="w-full p-2.5 bg-primary text-white rounded-lg disabled:opacity-50">
+                                {createBranchMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Create & Link'}
                             </button>
                         </div>
                     </div>
@@ -518,8 +525,8 @@ export default function BatchDetail() {
                             onChange={(e) => setClassLabel(e.target.value)}
                             className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg mb-4 text-text-primary"
                         />
-                        <button onClick={handleCreateClass} disabled={submitting} className="w-full p-2.5 bg-primary text-white rounded-lg disabled:opacity-50">
-                            {submitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Create Class'}
+                        <button onClick={handleCreateClass} disabled={createClassMutation.isPending} className="w-full p-2.5 bg-primary text-white rounded-lg disabled:opacity-50">
+                            {createClassMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Create Class'}
                         </button>
                     </div>
                 </div>

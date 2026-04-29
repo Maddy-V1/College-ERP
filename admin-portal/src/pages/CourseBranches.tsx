@@ -2,7 +2,8 @@
 // Admin Portal - Course Branches Page
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     Plus,
@@ -56,10 +57,8 @@ interface Branch {
 export default function CourseBranches() {
     const { courseId } = useParams<{ courseId: string }>();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
-    const [course, setCourse] = useState<Course | null>(null);
-    const [branches, setBranches] = useState<Branch[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
@@ -67,77 +66,63 @@ export default function CourseBranches() {
         branch_name: '',
         branch_code: '',
     });
-    const [submitting, setSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
 
     // Fetch course and branches
-    useEffect(() => {
-        const fetchData = async () => {
-            if (!supabase || !courseId) {
-                setLoading(false);
-                return;
-            }
+    const { data: { course, branches } = { course: null, branches: [] }, isLoading: loading, error } = useQuery({
+        queryKey: ['courseBranches', courseId],
+        queryFn: async () => {
+            if (!supabase || !courseId) return { course: null, branches: [] };
 
-            try {
-                // Fetch course
-                const { data: courseData, error: courseError } = await supabase
-                    .from('courses')
-                    .select('*')
-                    .eq('id', courseId)
-                    .single();
+            // Fetch course
+            const { data: courseData, error: courseError } = await supabase
+                .from('courses')
+                .select('*')
+                .eq('id', courseId)
+                .single();
 
-                if (courseError) throw courseError;
-                setCourse(courseData);
+            if (courseError) throw courseError;
 
-                // Fetch branches for this course
-                const { data: branchesData, error: branchesError } = await supabase
-                    .from('branches')
-                    .select('*')
-                    .eq('course_id', courseId)
-                    .order('branch_name');
+            // Fetch branches for this course
+            const { data: branchesData, error: branchesError } = await supabase
+                .from('branches')
+                .select('*')
+                .eq('course_id', courseId)
+                .order('branch_name');
 
-                if (branchesError) throw branchesError;
+            if (branchesError) throw branchesError;
 
-                // Get class count for each branch
-                const branchesWithCounts = await Promise.all(
-                    (branchesData || []).map(async (branch) => {
-                        const { count } = await supabase
-                            .from('classes')
-                            .select('id', { count: 'exact', head: true })
-                            .eq('branch_id', branch.id);
+            // Get class count for each branch
+            const branchesWithCounts = await Promise.all(
+                (branchesData || []).map(async (branch) => {
+                    const { count } = await supabase
+                        .from('classes')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('branch_id', branch.id);
 
-                        return {
-                            ...branch,
-                            class_count: count || 0
-                        };
-                    })
-                );
+                    return {
+                        ...branch,
+                        class_count: count || 0
+                    };
+                })
+            );
 
-                setBranches(branchesWithCounts);
-            } catch (error) {
-                console.error('Error fetching data:', error);
-                setErrorMessage('Failed to load course details');
-            } finally {
-                setLoading(false);
-            }
-        };
+            return { course: courseData as Course, branches: branchesWithCounts as Branch[] };
+        }
+    });
 
-        fetchData();
-    }, [courseId]);
+    if (error && !errorMessage) {
+        setErrorMessage('Failed to load course details');
+    }
 
-    // Handle create branch
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!supabase || !courseId) return;
-        setSubmitting(true);
-        setErrorMessage('');
-
-        try {
+    const createMutation = useMutation({
+        mutationFn: async (submitData: any) => {
+            if (!supabase || !courseId) throw new Error('Supabase client or course ID not found');
             const { data, error } = await supabase
                 .from('branches')
                 .insert({
-                    ...formData,
+                    ...submitData,
                     course_id: courseId,
                     is_active: true
                 })
@@ -145,50 +130,54 @@ export default function CourseBranches() {
                 .single();
 
             if (error) throw error;
-
-            setBranches([...branches, { ...data, class_count: 0 }]);
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['courseBranches', courseId] });
             setSuccessMessage('Branch created successfully!');
             setIsModalOpen(false);
             setFormData({ branch_name: '', branch_code: '' });
             setTimeout(() => setSuccessMessage(''), 3000);
-        } catch (error) {
-            console.error('Error creating branch:', error);
+        },
+        onError: () => {
             setErrorMessage('Failed to create branch');
-        } finally {
-            setSubmitting(false);
         }
+    });
+
+    // Handle create branch
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setErrorMessage('');
+        createMutation.mutate(formData);
     };
 
-    // Handle edit branch
-    const handleEditSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!supabase || !editingBranch) return;
-        setSubmitting(true);
-        setErrorMessage('');
-
-        try {
+    const editMutation = useMutation({
+        mutationFn: async (submitData: { branch_name: string }) => {
+            if (!supabase || !editingBranch) throw new Error('Supabase client or editing branch not found');
             const { error } = await supabase
                 .from('branches')
-                .update({ branch_name: formData.branch_name })
+                .update({ branch_name: submitData.branch_name })
                 .eq('id', editingBranch.id);
 
             if (error) throw error;
-
-            setBranches(branches.map(b =>
-                b.id === editingBranch.id
-                    ? { ...b, branch_name: formData.branch_name }
-                    : b
-            ));
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['courseBranches', courseId] });
             setSuccessMessage('Branch updated successfully!');
             setIsEditModalOpen(false);
             setEditingBranch(null);
             setTimeout(() => setSuccessMessage(''), 3000);
-        } catch (error) {
-            console.error('Error updating branch:', error);
+        },
+        onError: () => {
             setErrorMessage('Failed to update branch');
-        } finally {
-            setSubmitting(false);
         }
+    });
+
+    // Handle edit branch
+    const handleEditSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setErrorMessage('');
+        editMutation.mutate({ branch_name: formData.branch_name });
     };
 
     // Open edit modal
@@ -398,8 +387,8 @@ export default function CourseBranches() {
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={submitting} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                <button type="submit" disabled={createMutation.isPending} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
+                                    {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Add Branch
                                 </button>
                             </div>
@@ -442,8 +431,8 @@ export default function CourseBranches() {
                                 <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={submitting} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-accent-teal to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                <button type="submit" disabled={editMutation.isPending} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-accent-teal to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
+                                    {editMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Save Changes
                                 </button>
                             </div>

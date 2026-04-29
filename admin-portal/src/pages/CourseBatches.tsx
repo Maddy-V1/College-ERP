@@ -3,7 +3,8 @@
 // Shows batches linked to a specific course
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     Plus,
@@ -64,159 +65,149 @@ interface Branch {
 export default function CourseBatches() {
     const { courseId } = useParams<{ courseId: string }>();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
-    const [course, setCourse] = useState<Course | null>(null);
-    const [branches, setBranches] = useState<Branch[]>([]);
-    const [linkedBatches, setLinkedBatches] = useState<Batch[]>([]);
-    const [allBatches, setAllBatches] = useState<Batch[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
     const [selectedBatchId, setSelectedBatchId] = useState('');
-    const [submitting, setSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
 
     // Fetch course, its branches, and linked batches
-    useEffect(() => {
-        const fetchData = async () => {
-            if (!supabase || !courseId) {
-                setLoading(false);
-                return;
-            }
+    const { data: { course, branches, linkedBatches, allBatches } = { course: null, branches: [], linkedBatches: [], allBatches: [] }, isLoading: loading, error } = useQuery({
+        queryKey: ['courseBatches', courseId],
+        queryFn: async () => {
+            if (!supabase || !courseId) return { course: null, branches: [], linkedBatches: [], allBatches: [] };
 
-            try {
-                // Fetch course
-                const { data: courseData, error: courseError } = await supabase
-                    .from('courses')
-                    .select('*')
-                    .eq('id', courseId)
-                    .single();
+            // Fetch course
+            const { data: courseData, error: courseError } = await supabase
+                .from('courses')
+                .select('*')
+                .eq('id', courseId)
+                .single();
 
-                if (courseError) throw courseError;
-                setCourse(courseData);
+            if (courseError) throw courseError;
 
-                // Fetch branches for this course
-                const { data: branchesData } = await supabase
-                    .from('branches')
-                    .select('id, branch_name, branch_code')
-                    .eq('course_id', courseId)
-                    .eq('is_active', true)
-                    .order('branch_name');
+            // Fetch branches for this course
+            const { data: branchesData } = await supabase
+                .from('branches')
+                .select('id, branch_name, branch_code')
+                .eq('course_id', courseId)
+                .eq('is_active', true)
+                .order('branch_name');
 
-                setBranches(branchesData || []);
+            // Fetch ALL batches
+            const { data: allBatchesData } = await supabase
+                .from('batches')
+                .select('*')
+                .order('batch_year', { ascending: false });
 
-                // Fetch ALL batches
-                const { data: allBatchesData } = await supabase
-                    .from('batches')
-                    .select('*')
-                    .order('batch_year', { ascending: false });
+            // Fetch batches linked to this course via batch_courses
+            const { data: batchCoursesData, error: bcError } = await supabase
+                .from('batch_courses')
+                .select(`
+                    batch_id,
+                    batches(
+                        id,
+                        batch_name,
+                        batch_year,
+                        is_active
+                    )
+                `)
+                .eq('course_id', courseId)
+                .eq('is_active', true);
 
-                setAllBatches(allBatchesData || []);
+            if (bcError) throw bcError;
 
-                // Fetch batches linked to this course via batch_courses
-                const { data: batchCoursesData, error: bcError } = await supabase
-                    .from('batch_courses')
-                    .select(`
-                        batch_id,
-                        batches(
-                            id,
-                            batch_name,
-                            batch_year,
-                            is_active
-                        )
-                    `)
-                    .eq('course_id', courseId)
-                    .eq('is_active', true);
+            // Extract batches and get class/student counts
+            const batchesWithCounts = await Promise.all(
+                (batchCoursesData || []).map(async (bc: any) => {
+                    const batch = bc.batches;
+                    if (!batch) return null;
 
-                if (bcError) throw bcError;
+                    // Count classes for this batch + course combination
+                    const branchIds = branchesData?.map(b => b.id) || [];
+                    let classCount = 0;
+                    let studentCount = 0;
 
-                // Extract batches and get class/student counts
-                const batchesWithCounts = await Promise.all(
-                    (batchCoursesData || []).map(async (bc: any) => {
-                        const batch = bc.batches;
-                        if (!batch) return null;
+                    if (branchIds.length > 0) {
+                        const { count } = await supabase
+                            .from('classes')
+                            .select('id', { count: 'exact', head: true })
+                            .eq('batch_id', batch.id)
+                            .in('branch_id', branchIds);
+                        classCount = count || 0;
 
-                        // Count classes for this batch + course combination
-                        const branchIds = branchesData?.map(b => b.id) || [];
-                        let classCount = 0;
-                        let studentCount = 0;
+                        // Get class IDs for student count
+                        const { data: classesData } = await supabase
+                            .from('classes')
+                            .select('id')
+                            .eq('batch_id', batch.id)
+                            .in('branch_id', branchIds);
 
-                        if (branchIds.length > 0) {
-                            const { count } = await supabase
-                                .from('classes')
+                        if (classesData && classesData.length > 0) {
+                            const classIds = classesData.map(c => c.id);
+                            const { count: sCount } = await supabase
+                                .from('class_students')
                                 .select('id', { count: 'exact', head: true })
-                                .eq('batch_id', batch.id)
-                                .in('branch_id', branchIds);
-                            classCount = count || 0;
-
-                            // Get class IDs for student count
-                            const { data: classesData } = await supabase
-                                .from('classes')
-                                .select('id')
-                                .eq('batch_id', batch.id)
-                                .in('branch_id', branchIds);
-
-                            if (classesData && classesData.length > 0) {
-                                const classIds = classesData.map(c => c.id);
-                                const { count: sCount } = await supabase
-                                    .from('class_students')
-                                    .select('id', { count: 'exact', head: true })
-                                    .eq('is_active', true)
-                                    .in('class_id', classIds);
-                                studentCount = sCount || 0;
-                            }
+                                .eq('is_active', true)
+                                .in('class_id', classIds);
+                            studentCount = sCount || 0;
                         }
+                    }
 
-                        return {
-                            ...batch,
-                            class_count: classCount,
-                            student_count: studentCount
-                        };
-                    })
-                );
+                    return {
+                        ...batch,
+                        class_count: classCount,
+                        student_count: studentCount
+                    };
+                })
+            );
 
-                setLinkedBatches(batchesWithCounts.filter((b): b is Batch => b !== null));
-            } catch (error) {
-                console.error('Error fetching data:', error);
-                setErrorMessage('Failed to load course details');
-            } finally {
-                setLoading(false);
-            }
-        };
+            return {
+                course: courseData as Course,
+                branches: (branchesData || []) as Branch[],
+                allBatches: (allBatchesData || []) as Batch[],
+                linkedBatches: batchesWithCounts.filter((b): b is Batch => b !== null)
+            };
+        }
+    });
 
-        fetchData();
-    }, [courseId]);
+    if (error && !errorMessage) {
+        setErrorMessage('Failed to load course details');
+    }
 
     // Link batch to course
-    const handleLinkBatch = async () => {
-        if (!supabase || !courseId || !selectedBatchId) return;
-        setSubmitting(true);
-        setErrorMessage('');
-
-        try {
+    const linkMutation = useMutation({
+        mutationFn: async () => {
+            if (!supabase || !courseId || !selectedBatchId) throw new Error('Missing Supabase client, course ID, or batch ID');
             const { error } = await supabase
                 .from('batch_courses')
                 .insert({ batch_id: selectedBatchId, course_id: courseId });
 
             if (error) {
                 if (error.code === '23505') {
-                    setErrorMessage('This batch is already linked to this course');
+                    throw new Error('This batch is already linked to this course');
                 } else {
                     throw error;
                 }
-            } else {
-                setSuccessMessage('Batch linked successfully!');
-                setIsLinkModalOpen(false);
-                setSelectedBatchId('');
-                // Refresh page
-                window.location.reload();
             }
-        } catch (error) {
-            console.error('Error linking batch:', error);
-            setErrorMessage('Failed to link batch');
-        } finally {
-            setSubmitting(false);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['courseBatches', courseId] });
+            setSuccessMessage('Batch linked successfully!');
+            setIsLinkModalOpen(false);
+            setSelectedBatchId('');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        },
+        onError: (error: Error) => {
+            setErrorMessage(error.message || 'Failed to link batch');
         }
+    });
+
+    // Link batch to course
+    const handleLinkBatch = () => {
+        setErrorMessage('');
+        linkMutation.mutate();
     };
 
     if (loading) {
@@ -428,10 +419,10 @@ export default function CourseBatches() {
                                 </button>
                                 <button
                                     onClick={handleLinkBatch}
-                                    disabled={submitting || !selectedBatchId}
+                                    disabled={linkMutation.isPending || !selectedBatchId}
                                     className="flex-1 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    {linkMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Link Batch
                                 </button>
                             </div>

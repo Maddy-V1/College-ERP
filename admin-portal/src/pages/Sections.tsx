@@ -2,7 +2,8 @@
 // Admin Portal - Sections Page
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     Plus,
@@ -63,72 +64,60 @@ interface Batch {
 export default function Sections() {
     const { batchId, courseId, branchId } = useParams<{ batchId: string; courseId: string; branchId: string }>();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
-    const [batch, setBatch] = useState<Batch | null>(null);
-    const [course, setCourse] = useState<Course | null>(null);
-    const [branch, setBranch] = useState<Branch | null>(null);
-    const [classes, setClasses] = useState<Class[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({
         section_letter: '',
     });
-    const [submitting, setSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
 
     // Fetch data
-    useEffect(() => {
-        const fetchData = async () => {
+    const { data, isLoading: loading, error } = useQuery({
+        queryKey: ['sectionsData', batchId, courseId, branchId],
+        queryFn: async () => {
             if (!supabase || !branchId || !courseId || !batchId) {
-                setLoading(false);
-                return;
+                return { batch: null, course: null, branch: null, classes: [] };
             }
 
-            try {
-                const [batchRes, courseRes, branchRes, classesRes] = await Promise.all([
-                    supabase.from('batches').select('id, batch_name').eq('id', batchId).single(),
-                    supabase.from('courses').select('id, course_name, course_code').eq('id', courseId).single(),
-                    supabase.from('branches').select('id, branch_name, branch_code').eq('id', branchId).single(),
-                    supabase.from('classes').select('*').eq('branch_id', branchId).eq('batch_id', batchId).order('class_label'),
-                ]);
+            const [batchRes, courseRes, branchRes, classesRes] = await Promise.all([
+                supabase.from('batches').select('id, batch_name').eq('id', batchId).single(),
+                supabase.from('courses').select('id, course_name, course_code').eq('id', courseId).single(),
+                supabase.from('branches').select('id, branch_name, branch_code').eq('id', branchId).single(),
+                supabase.from('classes').select('*').eq('branch_id', branchId).eq('batch_id', batchId).order('class_label'),
+            ]);
 
-                if (batchRes.error) throw batchRes.error;
-                if (courseRes.error) throw courseRes.error;
-                if (branchRes.error) throw branchRes.error;
+            if (batchRes.error) throw batchRes.error;
+            if (courseRes.error) throw courseRes.error;
+            if (branchRes.error) throw branchRes.error;
 
-                setBatch(batchRes.data);
-                setCourse(courseRes.data);
-                setBranch(branchRes.data);
-                setClasses(classesRes.data || []);
-            } catch (error) {
-                console.error('Error fetching data:', error);
-                setErrorMessage('Failed to load sections');
-            } finally {
-                setLoading(false);
-            }
-        };
+            return {
+                batch: batchRes.data as Batch,
+                course: courseRes.data as Course,
+                branch: branchRes.data as Branch,
+                classes: (classesRes.data as Class[]) || []
+            };
+        }
+    });
 
-        fetchData();
-    }, [batchId, courseId, branchId]);
+    // Provide default empty objects/arrays to avoid null checks down the line
+    const batch = data?.batch;
+    const course = data?.course;
+    const branch = data?.branch;
+    const classes = data?.classes || [];
 
-    // Handle create section/class
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSubmitting(true);
-        setErrorMessage('');
+    // Optionally set error message if one occurs during queries
+    if (error && !errorMessage) {
+        setErrorMessage('Failed to load sections');
+    }
 
-        const classLabel = `${batch?.batch_name?.split('-')[0] || ''}-${branch?.branch_code || ''}-${formData.section_letter}`;
-
-        try {
+    const createMutation = useMutation({
+        mutationFn: async (submitData: any) => {
             const response = await fetch('http://localhost:4003/api/admin/v1/academic/classes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    class_label: classLabel,
-                    batch_id: batchId,
-                    branch_id: branchId,
-                }),
+                body: JSON.stringify(submitData),
             });
 
             if (!response.ok) {
@@ -136,17 +125,32 @@ export default function Sections() {
                 throw new Error(error.message || 'Failed to create class');
             }
 
-            const result = await response.json();
-            setClasses([...classes, result.data]);
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['sectionsData'] });
             setSuccessMessage('Section created successfully!');
             setIsModalOpen(false);
             setFormData({ section_letter: '' });
             setTimeout(() => setSuccessMessage(''), 3000);
-        } catch (error) {
-            setErrorMessage(error instanceof Error ? error.message : 'An error occurred');
-        } finally {
-            setSubmitting(false);
+        },
+        onError: (error: Error) => {
+            setErrorMessage(error.message);
         }
+    });
+
+    // Handle create section/class
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setErrorMessage('');
+
+        const classLabel = `${batch?.batch_name?.split('-')[0] || ''}-${branch?.branch_code || ''}-${formData.section_letter}`;
+
+        createMutation.mutate({
+            class_label: classLabel,
+            batch_id: batchId,
+            branch_id: branchId,
+        });
     };
 
     if (loading) {
@@ -301,8 +305,8 @@ export default function Sections() {
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={submitting || !formData.section_letter} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-accent-teal to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                <button type="submit" disabled={createMutation.isPending || !formData.section_letter} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-accent-teal to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
+                                    {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Create
                                 </button>
                             </div>

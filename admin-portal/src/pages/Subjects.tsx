@@ -2,7 +2,8 @@
 // Admin Portal - Subjects Management Page
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Plus,
     Search,
@@ -57,13 +58,12 @@ const SUBJECT_TYPES = [
 // ============================================
 
 export default function Subjects() {
-    const [subjects, setSubjects] = useState<Subject[]>([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
+
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState<string>('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
-    const [submitting, setSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
 
@@ -78,23 +78,17 @@ export default function Subjects() {
     });
 
     // Fetch subjects
-    useEffect(() => {
-        const fetchSubjects = async () => {
-            try {
-                const response = await fetch('http://localhost:4003/api/admin/v1/academic/subjects');
-                if (response.ok) {
-                    const result = await response.json();
-                    setSubjects(result.data || []);
-                }
-            } catch (error) {
-                console.error('Error fetching subjects:', error);
-                setErrorMessage('Failed to fetch subjects');
-            } finally {
-                setLoading(false);
+    const { data: subjects = [], isLoading: loading } = useQuery<Subject[]>({
+        queryKey: ['subjects'],
+        queryFn: async () => {
+            const response = await fetch('http://localhost:4003/api/admin/v1/academic/subjects');
+            if (response.ok) {
+                const result = await response.json();
+                return result.data || [];
             }
-        };
-        fetchSubjects();
-    }, []);
+            throw new Error('Failed to fetch subjects');
+        }
+    });
 
     // Filter subjects
     const filteredSubjects = subjects.filter((subject) => {
@@ -135,13 +129,8 @@ export default function Subjects() {
         setIsModalOpen(true);
     };
 
-    // Submit form
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSubmitting(true);
-        setErrorMessage('');
-
-        try {
+    const saveMutation = useMutation({
+        mutationFn: async (submitData: any) => {
             const url = editingSubject
                 ? `http://localhost:4003/api/admin/v1/academic/subjects/${editingSubject.id}`
                 : 'http://localhost:4003/api/admin/v1/academic/subjects';
@@ -149,50 +138,58 @@ export default function Subjects() {
             const response = await fetch(url, {
                 method: editingSubject ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(submitData),
             });
 
             const result = await response.json();
-
-            if (response.ok) {
-                // Refresh list
-                const listRes = await fetch('http://localhost:4003/api/admin/v1/academic/subjects');
-                if (listRes.ok) {
-                    const listResult = await listRes.json();
-                    setSubjects(listResult.data || []);
-                }
-                setIsModalOpen(false);
-                setSuccessMessage(editingSubject ? 'Subject updated successfully!' : 'Subject created successfully!');
-                setTimeout(() => setSuccessMessage(''), 3000);
-            } else {
-                setErrorMessage(result.message || 'Failed to save subject');
+            if (!response.ok) {
+                throw new Error(result.message || 'Failed to save subject');
             }
-        } catch (error) {
-            console.error('Error saving subject:', error);
-            setErrorMessage('Failed to save subject');
-        } finally {
-            setSubmitting(false);
+            return result;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['subjects'] });
+            setIsModalOpen(false);
+            setSuccessMessage(editingSubject ? 'Subject updated successfully!' : 'Subject created successfully!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        },
+        onError: (error: Error) => {
+            setErrorMessage(error.message);
         }
-    };
+    });
 
-    // Delete subject
-    const handleDelete = async (subject: Subject) => {
-        if (!confirm(`Are you sure you want to delete "${subject.subject_name}"?`)) return;
-
-        try {
+    const deleteMutation = useMutation({
+        mutationFn: async (subject: Subject) => {
             const response = await fetch(`http://localhost:4003/api/admin/v1/academic/subjects/${subject.id}`, {
                 method: 'DELETE',
             });
-
-            if (response.ok) {
-                setSubjects(subjects.filter((s) => s.id !== subject.id));
-                setSuccessMessage('Subject deleted successfully!');
-                setTimeout(() => setSuccessMessage(''), 3000);
+            if (!response.ok) {
+                throw new Error('Failed to delete subject');
             }
-        } catch (error) {
-            console.error('Error deleting subject:', error);
-            setErrorMessage('Failed to delete subject');
+            return response;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['subjects'] });
+            setSuccessMessage('Subject deleted successfully!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        },
+        onError: (error: Error) => {
+            setErrorMessage(error.message);
         }
+    });
+
+    // Submit form
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setErrorMessage('');
+        saveMutation.mutate(formData);
+    };
+
+    // Delete subject
+    const handleDelete = (subject: Subject) => {
+        if (!confirm(`Are you sure you want to delete "${subject.subject_name}"?`)) return;
+        setErrorMessage('');
+        deleteMutation.mutate(subject);
     };
 
     const getTypeStyle = (type: string) => {
@@ -491,10 +488,10 @@ export default function Subjects() {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={submitting || !formData.subject_code || !formData.subject_name}
+                                    disabled={saveMutation.isPending || !formData.subject_code || !formData.subject_name}
                                     className="flex-1 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    {saveMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                                     {editingSubject ? 'Update Subject' : 'Create Subject'}
                                 </button>
                             </div>

@@ -2,7 +2,8 @@
 // Admin Portal - Professors Page
 // ============================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Plus,
     Search,
@@ -79,15 +80,13 @@ interface ProfessorFormData {
 // ============================================
 
 export default function Professors() {
+    const queryClient = useQueryClient();
+
     // State
-    const [professors, setProfessors] = useState<Professor[]>([]);
-    const [departments, setDepartments] = useState<Department[]>([]);
-    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterDepartment, setFilterDepartment] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
     const [currentPage, setCurrentPage] = useState(1);
-    const [totalCount, setTotalCount] = useState(0);
     const pageSize = 20;
 
     // Modal state
@@ -106,28 +105,29 @@ export default function Professors() {
         joined_date: '',
     });
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-    const [submitting, setSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
 
     // Fetch departments
-    useEffect(() => {
-        const fetchDepartments = async () => {
-            if (!supabase) return;
+    const { data: filtersData } = useQuery({
+        queryKey: ['departments_filters'],
+        queryFn: async () => {
+            if (!supabase) return { departments: [] };
             const { data } = await supabase
                 .from('departments')
                 .select('id, department_name, department_code')
                 .eq('is_active', true)
                 .order('department_name');
-            if (data) setDepartments(data);
-        };
-        fetchDepartments();
-    }, []);
+            return { departments: (data as Department[]) || [] };
+        }
+    });
+
+    const departments: Department[] = filtersData?.departments || [];
 
     // Fetch professors via API
-    const fetchProfessors = useCallback(async () => {
-        setLoading(true);
-        try {
+    const { data: professorsData, isLoading: loading } = useQuery({
+        queryKey: ['professors', searchQuery, filterDepartment, filterStatus, currentPage, pageSize],
+        queryFn: async () => {
             const params = new URLSearchParams();
             if (searchQuery) params.append('search', searchQuery);
             if (filterDepartment) params.append('department', filterDepartment);
@@ -140,29 +140,15 @@ export default function Professors() {
             );
 
             if (!response.ok) throw new Error('Failed to fetch professors');
-
             const result = await response.json();
 
-            if (result.success) {
-                setProfessors(result.data);
-                setTotalCount(result.pagination?.total || 0);
-            } else {
-                throw new Error(result.message || 'Failed to load professors');
-            }
-        } catch (error) {
-            console.error('Error fetching professors:', error);
-            setErrorMessage('Failed to load professors');
-            // Set empty data on error
-            setProfessors([]);
-            setTotalCount(0);
-        } finally {
-            setLoading(false);
+            if (!result.success) throw new Error(result.message || 'Failed to load professors');
+            return result;
         }
-    }, [searchQuery, filterDepartment, filterStatus, currentPage]);
+    });
 
-    useEffect(() => {
-        fetchProfessors();
-    }, [fetchProfessors]);
+    const professors: Professor[] = professorsData?.data || [];
+    const totalCount = professorsData?.pagination?.total || 0;
 
     // Form validation
     const validateForm = (): boolean => {
@@ -184,20 +170,8 @@ export default function Professors() {
         return Object.keys(errors).length === 0;
     };
 
-    // Handle form submit
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!validateForm()) return;
-
-        setSubmitting(true);
-        setErrorMessage('');
-
-        try {
-            // When editing, exclude password field (empty string fails validation)
-            const submitData = editingProfessor
-                ? { ...formData, password: undefined } // Remove password from update
-                : formData; // Include password for create
-
+    const saveMutation = useMutation({
+        mutationFn: async (submitData: any) => {
             const response = await fetch(
                 editingProfessor
                     ? `http://localhost:4003/api/admin/v1/professors/${editingProfessor.id}`
@@ -213,38 +187,58 @@ export default function Professors() {
                 const error = await response.json();
                 throw new Error(error.message || 'Failed to save professor');
             }
-
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['professors'] });
             setSuccessMessage(editingProfessor ? 'Professor updated successfully!' : 'Professor added successfully!');
             setIsModalOpen(false);
             resetForm();
-            fetchProfessors();
-
             setTimeout(() => setSuccessMessage(''), 3000);
-        } catch (error) {
-            setErrorMessage(error instanceof Error ? error.message : 'An error occurred');
-        } finally {
-            setSubmitting(false);
+        },
+        onError: (error: Error) => {
+            setErrorMessage(error.message);
         }
-    };
+    });
 
-    // Handle delete
-    const handleDelete = async (professor: Professor) => {
-        if (!confirm(`Are you sure you want to delete ${professor.full_name}?`)) return;
-
-        try {
+    const deleteMutation = useMutation({
+        mutationFn: async (professor: Professor) => {
             const response = await fetch(
                 `http://localhost:4003/api/admin/v1/professors/${professor.id}`,
                 { method: 'DELETE' }
             );
-
             if (!response.ok) throw new Error('Failed to delete professor');
-
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['professors'] });
             setSuccessMessage('Professor deleted successfully!');
-            fetchProfessors();
             setTimeout(() => setSuccessMessage(''), 3000);
-        } catch (error) {
+        },
+        onError: () => {
             setErrorMessage('Failed to delete professor');
         }
+    });
+
+    // Handle form submit
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!validateForm()) return;
+
+        setErrorMessage('');
+
+        const submitData = editingProfessor
+            ? { ...formData, password: undefined } // Remove password from update
+            : formData; // Include password for create
+
+        saveMutation.mutate(submitData);
+    };
+
+    // Handle delete
+    const handleDelete = (professor: Professor) => {
+        if (!confirm(`Are you sure you want to delete ${professor.full_name}?`)) return;
+        setErrorMessage('');
+        deleteMutation.mutate(professor);
     };
 
     // Reset form
@@ -286,7 +280,7 @@ export default function Professors() {
     const totalPages = Math.ceil(totalCount / pageSize);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6" >
             {/* Success Message */}
             {successMessage && (
                 <div className="flex items-center gap-3 p-4 bg-success/10 border border-success/30 rounded-lg text-success">
@@ -296,15 +290,17 @@ export default function Professors() {
             )}
 
             {/* Error Message */}
-            {errorMessage && (
-                <div className="flex items-center gap-3 p-4 bg-error/10 border border-error/30 rounded-lg text-error">
-                    <AlertCircle className="w-5 h-5" />
-                    <p>{errorMessage}</p>
-                    <button onClick={() => setErrorMessage('')} className="ml-auto">
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
-            )}
+            {
+                errorMessage && (
+                    <div className="flex items-center gap-3 p-4 bg-error/10 border border-error/30 rounded-lg text-error">
+                        <AlertCircle className="w-5 h-5" />
+                        <p>{errorMessage}</p>
+                        <button onClick={() => setErrorMessage('')} className="ml-auto">
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                )
+            }
 
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -501,230 +497,232 @@ export default function Professors() {
             </div>
 
             {/* Add/Edit Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-bg-secondary border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between p-6 border-b border-white/10">
-                            <h2 className="text-xl font-bold text-text-primary">
-                                {editingProfessor ? 'Edit Professor' : 'Add Professor'}
-                            </h2>
-                            <button
-                                onClick={() => {
-                                    setIsModalOpen(false);
-                                    resetForm();
-                                }}
-                                className="p-2 text-text-secondary hover:text-text-primary"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        {/* Modal Body */}
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                            {/* Full Name */}
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">
-                                    Full Name *
-                                </label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                                    <input
-                                        type="text"
-                                        value={formData.full_name}
-                                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                        className={`w-full pl-10 pr-4 py-2.5 bg-white/5 border rounded-lg text-text-primary focus:outline-none focus:border-primary ${formErrors.full_name ? 'border-error' : 'border-white/10'
-                                            }`}
-                                        placeholder="Dr. John Smith"
-                                    />
-                                </div>
-                                {formErrors.full_name && (
-                                    <p className="text-error text-xs mt-1">{formErrors.full_name}</p>
-                                )}
-                            </div>
-
-                            {/* Email */}
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">
-                                    Email *
-                                </label>
-                                <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                                    <input
-                                        type="email"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        className={`w-full pl-10 pr-4 py-2.5 bg-white/5 border rounded-lg text-text-primary focus:outline-none focus:border-primary ${formErrors.email ? 'border-error' : 'border-white/10'
-                                            }`}
-                                        placeholder="john.smith@college.edu"
-                                        disabled={!!editingProfessor}
-                                    />
-                                </div>
-                                {formErrors.email && (
-                                    <p className="text-error text-xs mt-1">{formErrors.email}</p>
-                                )}
-                            </div>
-
-                            {/* Phone & Employee ID */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-text-secondary mb-1">
-                                        Phone
-                                    </label>
-                                    <div className="relative">
-                                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                                        <input
-                                            type="tel"
-                                            value={formData.phone}
-                                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                            className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
-                                            placeholder="+91 9876543210"
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-text-secondary mb-1">
-                                        Employee ID *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.employee_id}
-                                        onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                                        className={`w-full px-4 py-2.5 bg-white/5 border rounded-lg text-text-primary focus:outline-none focus:border-primary ${formErrors.employee_id ? 'border-error' : 'border-white/10'
-                                            }`}
-                                        placeholder="EMP001"
-                                        disabled={!!editingProfessor}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Password - Only show when creating new professor */}
-                            {!editingProfessor && (
-                                <div>
-                                    <label className="block text-sm font-medium text-text-secondary mb-1">
-                                        Password <span className="text-text-muted">(Leave empty for default: Prof@EmpID)</span>
-                                    </label>
-                                    <div className="relative">
-                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                                        <input
-                                            type="password"
-                                            value={formData.password}
-                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                            className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
-                                            placeholder="Minimum 6 characters"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Department */}
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">
-                                    Department
-                                </label>
-                                <div className="relative">
-                                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                                    <select
-                                        value={formData.department_id}
-                                        onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary appearance-none"
-                                    >
-                                        <option value="">Select Department</option>
-                                        {departments.map((dept) => (
-                                            <option key={dept.id} value={dept.id}>
-                                                {dept.department_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* Designation & Qualification */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-text-secondary mb-1">
-                                        Designation
-                                    </label>
-                                    <div className="relative">
-                                        <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                                        <input
-                                            type="text"
-                                            value={formData.designation}
-                                            onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-                                            className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
-                                            placeholder="Professor"
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-text-secondary mb-1">
-                                        Qualification
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.qualification}
-                                        onChange={(e) => setFormData({ ...formData, qualification: e.target.value })}
-                                        className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
-                                        placeholder="Ph.D."
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Specialization */}
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">
-                                    Specialization
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.specialization}
-                                    onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
-                                    placeholder="Machine Learning, AI"
-                                />
-                            </div>
-
-                            {/* Joining Date */}
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">
-                                    Joining Date
-                                </label>
-                                <div className="relative">
-                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                                    <input
-                                        type="date"
-                                        value={formData.joined_date}
-                                        onChange={(e) => setFormData({ ...formData, joined_date: e.target.value })}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex gap-3 pt-4">
+            {
+                isModalOpen && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-bg-secondary border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                            {/* Modal Header */}
+                            <div className="flex items-center justify-between p-6 border-b border-white/10">
+                                <h2 className="text-xl font-bold text-text-primary">
+                                    {editingProfessor ? 'Edit Professor' : 'Add Professor'}
+                                </h2>
                                 <button
-                                    type="button"
                                     onClick={() => {
                                         setIsModalOpen(false);
                                         resetForm();
                                     }}
-                                    className="flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5 transition-colors"
+                                    className="p-2 text-text-secondary hover:text-text-primary"
                                 >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
-                                >
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                                    {editingProfessor ? 'Update' : 'Add Professor'}
+                                    <X className="w-5 h-5" />
                                 </button>
                             </div>
-                        </form>
+
+                            {/* Modal Body */}
+                            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                                {/* Full Name */}
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                                        Full Name *
+                                    </label>
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                                        <input
+                                            type="text"
+                                            value={formData.full_name}
+                                            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                                            className={`w-full pl-10 pr-4 py-2.5 bg-white/5 border rounded-lg text-text-primary focus:outline-none focus:border-primary ${formErrors.full_name ? 'border-error' : 'border-white/10'
+                                                }`}
+                                            placeholder="Dr. John Smith"
+                                        />
+                                    </div>
+                                    {formErrors.full_name && (
+                                        <p className="text-error text-xs mt-1">{formErrors.full_name}</p>
+                                    )}
+                                </div>
+
+                                {/* Email */}
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                                        Email *
+                                    </label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                                        <input
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            className={`w-full pl-10 pr-4 py-2.5 bg-white/5 border rounded-lg text-text-primary focus:outline-none focus:border-primary ${formErrors.email ? 'border-error' : 'border-white/10'
+                                                }`}
+                                            placeholder="john.smith@college.edu"
+                                            disabled={!!editingProfessor}
+                                        />
+                                    </div>
+                                    {formErrors.email && (
+                                        <p className="text-error text-xs mt-1">{formErrors.email}</p>
+                                    )}
+                                </div>
+
+                                {/* Phone & Employee ID */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-1">
+                                            Phone
+                                        </label>
+                                        <div className="relative">
+                                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                                            <input
+                                                type="tel"
+                                                value={formData.phone}
+                                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                                className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
+                                                placeholder="+91 9876543210"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-1">
+                                            Employee ID *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.employee_id}
+                                            onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                                            className={`w-full px-4 py-2.5 bg-white/5 border rounded-lg text-text-primary focus:outline-none focus:border-primary ${formErrors.employee_id ? 'border-error' : 'border-white/10'
+                                                }`}
+                                            placeholder="EMP001"
+                                            disabled={!!editingProfessor}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Password - Only show when creating new professor */}
+                                {!editingProfessor && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-1">
+                                            Password <span className="text-text-muted">(Leave empty for default: Prof@EmpID)</span>
+                                        </label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                                            <input
+                                                type="password"
+                                                value={formData.password}
+                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
+                                                placeholder="Minimum 6 characters"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Department */}
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                                        Department
+                                    </label>
+                                    <div className="relative">
+                                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                                        <select
+                                            value={formData.department_id}
+                                            onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
+                                            className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary appearance-none"
+                                        >
+                                            <option value="">Select Department</option>
+                                            {departments.map((dept) => (
+                                                <option key={dept.id} value={dept.id}>
+                                                    {dept.department_name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Designation & Qualification */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-1">
+                                            Designation
+                                        </label>
+                                        <div className="relative">
+                                            <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                                            <input
+                                                type="text"
+                                                value={formData.designation}
+                                                onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                                                className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
+                                                placeholder="Professor"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-1">
+                                            Qualification
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.qualification}
+                                            onChange={(e) => setFormData({ ...formData, qualification: e.target.value })}
+                                            className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
+                                            placeholder="Ph.D."
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Specialization */}
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                                        Specialization
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.specialization}
+                                        onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
+                                        className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
+                                        placeholder="Machine Learning, AI"
+                                    />
+                                </div>
+
+                                {/* Joining Date */}
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                                        Joining Date
+                                    </label>
+                                    <div className="relative">
+                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                                        <input
+                                            type="date"
+                                            value={formData.joined_date}
+                                            onChange={(e) => setFormData({ ...formData, joined_date: e.target.value })}
+                                            className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-text-primary focus:outline-none focus:border-primary"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="flex gap-3 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsModalOpen(false);
+                                            resetForm();
+                                        }}
+                                        className="flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={saveMutation.isPending}
+                                        className="flex-1 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        {saveMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                                        {editingProfessor ? 'Update' : 'Add Professor'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

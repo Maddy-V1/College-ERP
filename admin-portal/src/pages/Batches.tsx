@@ -3,6 +3,7 @@
 // ============================================
 
 import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
     Plus,
@@ -46,94 +47,77 @@ interface Batch {
 
 export default function Batches() {
     const navigate = useNavigate();
-    const [batches, setBatches] = useState<Batch[]>([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({
         batch_name: '',
         batch_year: new Date().getFullYear(),
     });
-    const [submitting, setSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
 
     // Fetch batches with stats
-    useEffect(() => {
-        const fetchBatches = async () => {
-            if (!supabase) {
-                setLoading(false);
-                return;
-            }
+    const { data: batches = [], isLoading: loading } = useQuery<Batch[]>({
+        queryKey: ['batches'],
+        queryFn: async () => {
+            if (!supabase) return [];
 
-            try {
-                // Fetch batches
-                const { data: batchesData, error } = await supabase
-                    .from('batches')
-                    .select('*')
-                    .order('batch_year', { ascending: false });
+            // Fetch batches
+            const { data: batchesData, error } = await supabase
+                .from('batches')
+                .select('*')
+                .order('batch_year', { ascending: false });
 
-                if (error) throw error;
+            if (error) throw error;
 
-                // Get course count and student count for each batch
-                const batchesWithStats = await Promise.all(
-                    (batchesData || []).map(async (batch) => {
-                        // Count courses linked to this batch
-                        const { count: courseCount } = await supabase
-                            .from('batch_courses')
+            // Get course count and student count for each batch
+            const batchesWithStats = await Promise.all(
+                (batchesData || []).map(async (batch) => {
+                    // Count courses linked to this batch
+                    const { count: courseCount } = await supabase
+                        .from('batch_courses')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('batch_id', batch.id)
+                        .eq('is_active', true);
+
+                    // Get classes for this batch first
+                    const { data: classesData } = await supabase
+                        .from('classes')
+                        .select('id')
+                        .eq('batch_id', batch.id);
+
+                    const classIds = (classesData || []).map(c => c.id);
+
+                    // Count students in those classes
+                    let studentCount = 0;
+                    if (classIds.length > 0) {
+                        const { count } = await supabase
+                            .from('class_students')
                             .select('id', { count: 'exact', head: true })
-                            .eq('batch_id', batch.id)
-                            .eq('is_active', true);
+                            .eq('is_active', true)
+                            .in('class_id', classIds);
+                        studentCount = count || 0;
+                    }
 
-                        // Get classes for this batch first
-                        const { data: classesData } = await supabase
-                            .from('classes')
-                            .select('id')
-                            .eq('batch_id', batch.id);
+                    return {
+                        ...batch,
+                        course_count: courseCount || 0,
+                        student_count: studentCount
+                    };
+                })
+            );
 
-                        const classIds = (classesData || []).map(c => c.id);
+            return batchesWithStats;
+        }
+    });
 
-                        // Count students in those classes
-                        let studentCount = 0;
-                        if (classIds.length > 0) {
-                            const { count } = await supabase
-                                .from('class_students')
-                                .select('id', { count: 'exact', head: true })
-                                .eq('is_active', true)
-                                .in('class_id', classIds);
-                            studentCount = count || 0;
-                        }
-
-                        return {
-                            ...batch,
-                            course_count: courseCount || 0,
-                            student_count: studentCount
-                        };
-                    })
-                );
-
-                setBatches(batchesWithStats);
-            } catch (error) {
-                console.error('Error fetching batches:', error);
-                setErrorMessage('Failed to load batches');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchBatches();
-    }, []);
-
-    // Handle create batch
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSubmitting(true);
-        setErrorMessage('');
-
-        try {
+    const createMutation = useMutation({
+        mutationFn: async (submitData: any) => {
             const response = await fetch('http://localhost:4003/api/admin/v1/academic/batches', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(submitData),
             });
 
             if (!response.ok) {
@@ -141,8 +125,10 @@ export default function Batches() {
                 throw new Error(error.message || 'Failed to create batch');
             }
 
-            const result = await response.json();
-            setBatches([result.data, ...batches]);
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['batches'] });
             setSuccessMessage('Batch created successfully!');
             setIsModalOpen(false);
             setFormData({
@@ -150,11 +136,17 @@ export default function Batches() {
                 batch_year: new Date().getFullYear(),
             });
             setTimeout(() => setSuccessMessage(''), 3000);
-        } catch (error) {
-            setErrorMessage(error instanceof Error ? error.message : 'An error occurred');
-        } finally {
-            setSubmitting(false);
+        },
+        onError: (error: Error) => {
+            setErrorMessage(error.message);
         }
+    });
+
+    // Handle create batch
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setErrorMessage('');
+        createMutation.mutate(formData);
     };
 
     // Auto-generate batch name
@@ -320,10 +312,10 @@ export default function Batches() {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={submitting}
+                                    disabled={createMutation.isPending}
                                     className="flex-1 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Create Batch
                                 </button>
                             </div>

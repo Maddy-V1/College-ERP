@@ -2,7 +2,8 @@
 // Admin Portal - Students Page
 // ============================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Plus,
     Search,
@@ -61,12 +62,6 @@ interface Batch {
     batch_year: number;
 }
 
-interface Course {
-    id: string;
-    course_name: string;
-    course_code: string;
-}
-
 interface StudentFormData {
     full_name: string;
     email: string;
@@ -85,16 +80,13 @@ interface StudentFormData {
 // ============================================
 
 export default function Students() {
+    const queryClient = useQueryClient();
+
     // State
-    const [students, setStudents] = useState<Student[]>([]);
-    const [batches, setBatches] = useState<Batch[]>([]);
-    const [, setCourses] = useState<Course[]>([]);
-    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterBatch, setFilterBatch] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
     const [currentPage, setCurrentPage] = useState(1);
-    const [totalCount, setTotalCount] = useState(0);
     const pageSize = 20;
 
     // Modal state
@@ -113,30 +105,29 @@ export default function Students() {
         department_id: '',
     });
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-    const [submitting, setSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
 
-    // Fetch batches and courses
-    useEffect(() => {
-        const fetchFilters = async () => {
-            if (!supabase) return;
+    // Fetch filters
+    const { data: filtersData } = useQuery({
+        queryKey: ['filters'],
+        queryFn: async () => {
+            if (!supabase) return { batches: [], courses: [] };
 
-            const [batchesRes, coursesRes] = await Promise.all([
+            const [batchesRes] = await Promise.all([
                 supabase.from('batches').select('id, batch_name, batch_year').eq('is_active', true).order('batch_year', { ascending: false }),
-                supabase.from('courses').select('id, course_name, course_code').eq('is_active', true).order('course_name'),
             ]);
 
-            if (batchesRes.data) setBatches(batchesRes.data);
-            if (coursesRes.data) setCourses(coursesRes.data);
-        };
-        fetchFilters();
-    }, []);
+            return { batches: (batchesRes.data as Batch[]) || [] };
+        }
+    });
+
+    const batches: Batch[] = filtersData?.batches || [];
 
     // Fetch students via API
-    const fetchStudents = useCallback(async () => {
-        setLoading(true);
-        try {
+    const { data: studentsData, isLoading: loading } = useQuery({
+        queryKey: ['students', searchQuery, filterBatch, filterStatus, currentPage, pageSize],
+        queryFn: async () => {
             const params = new URLSearchParams();
             if (searchQuery) params.append('search', searchQuery);
             if (filterBatch) params.append('batch', filterBatch);
@@ -149,28 +140,15 @@ export default function Students() {
             );
 
             if (!response.ok) throw new Error('Failed to fetch students');
-
             const result = await response.json();
 
-            if (result.success) {
-                setStudents(result.data);
-                setTotalCount(result.pagination?.total || 0);
-            } else {
-                throw new Error(result.message || 'Failed to load students');
-            }
-        } catch (error) {
-            console.error('Error fetching students:', error);
-            setErrorMessage('Failed to load students');
-            setStudents([]);
-            setTotalCount(0);
-        } finally {
-            setLoading(false);
+            if (!result.success) throw new Error(result.message || 'Failed to load students');
+            return result;
         }
-    }, [searchQuery, filterBatch, filterStatus, currentPage]);
+    });
 
-    useEffect(() => {
-        fetchStudents();
-    }, [fetchStudents]);
+    const students: Student[] = studentsData?.data || [];
+    const totalCount = studentsData?.pagination?.total || 0;
 
     // Form validation
     const validateForm = (): boolean => {
@@ -195,22 +173,8 @@ export default function Students() {
         return Object.keys(errors).length === 0;
     };
 
-    // Handle form submit
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!validateForm()) return;
-
-        setSubmitting(true);
-        setErrorMessage('');
-
-        try {
-            // When editing, exclude password field (empty string fails validation)
-            const submitData = {
-                ...formData,
-                admission_year: parseInt(formData.admission_year),
-                ...(editingStudent && { password: undefined }), // Remove password from update
-            };
-
+    const saveMutation = useMutation({
+        mutationFn: async (submitData: any) => {
             const response = await fetch(
                 editingStudent
                     ? `http://localhost:4003/api/admin/v1/students/${editingStudent.id}`
@@ -226,38 +190,60 @@ export default function Students() {
                 const error = await response.json();
                 throw new Error(error.message || 'Failed to save student');
             }
-
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['students'] });
             setSuccessMessage(editingStudent ? 'Student updated successfully!' : 'Student registered successfully!');
             setIsModalOpen(false);
             resetForm();
-            fetchStudents();
-
             setTimeout(() => setSuccessMessage(''), 3000);
-        } catch (error) {
-            setErrorMessage(error instanceof Error ? error.message : 'An error occurred');
-        } finally {
-            setSubmitting(false);
+        },
+        onError: (error: Error) => {
+            setErrorMessage(error.message);
         }
-    };
+    });
 
-    // Handle delete
-    const handleDelete = async (student: Student) => {
-        if (!confirm(`Are you sure you want to delete ${student.full_name}?`)) return;
-
-        try {
+    const deleteMutation = useMutation({
+        mutationFn: async (student: Student) => {
             const response = await fetch(
                 `http://localhost:4003/api/admin/v1/students/${student.id}`,
                 { method: 'DELETE' }
             );
-
             if (!response.ok) throw new Error('Failed to delete student');
-
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['students'] });
             setSuccessMessage('Student deleted successfully!');
-            fetchStudents();
             setTimeout(() => setSuccessMessage(''), 3000);
-        } catch (error) {
+        },
+        onError: () => {
             setErrorMessage('Failed to delete student');
         }
+    });
+
+    // Handle form submit
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!validateForm()) return;
+
+        setErrorMessage('');
+
+        const submitData = {
+            ...formData,
+            admission_year: parseInt(formData.admission_year),
+            ...(editingStudent && { password: undefined }), // Remove password from update
+        };
+
+        saveMutation.mutate(submitData);
+    };
+
+    // Handle delete
+    const handleDelete = (student: Student) => {
+        if (!confirm(`Are you sure you want to delete ${student.full_name}?`)) return;
+        setErrorMessage('');
+        deleteMutation.mutate(student);
     };
 
     // Reset form
@@ -299,7 +285,7 @@ export default function Students() {
     const totalPages = Math.ceil(totalCount / pageSize);
 
     // Get unique years for filter
-    const admissionYears = [...new Set(students.map((s) => s.admission_year).filter(Boolean))].sort((a, b) => (b || 0) - (a || 0));
+    const admissionYears = [...new Set(students.map((s: Student) => s.admission_year).filter(Boolean))].sort((a, b) => ((b as number) || 0) - ((a as number) || 0));
 
     return (
         <div className="space-y-6">
@@ -719,10 +705,10 @@ export default function Students() {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={submitting}
+                                    disabled={saveMutation.isPending}
                                     className="flex-1 px-4 py-2.5 bg-gradient-to-r from-accent-teal to-primary text-white font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    {saveMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                                     {editingStudent ? 'Update' : 'Register Student'}
                                 </button>
                             </div>

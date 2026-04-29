@@ -1,0 +1,840 @@
+{
+  "student-portal": {
+    "LoginPage.tsx": {
+      "states": [
+        "email",
+        "password",
+        "showPassword",
+        "remember",
+        "error",
+        "isSubmitting"
+      ],
+      "buttons": [
+        "setShowPassword(!showPassword)}\n                                    className=\"absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary\"\n                                >\n                                    {showPassword ?  : }",
+        "Forgot password?",
+        "{isLoading ? 'Signing in...' : 'Sign In'}"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "Attendance.tsx": {
+      "states": [
+        "data",
+        "loading",
+        "error",
+        "selectedSubject",
+        "subjectDetail",
+        "detailLoading"
+      ],
+      "buttons": [
+        "Try Again"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "Home.tsx": {
+      "states": [
+        "selectedDay",
+        "visibleDays",
+        "selectedDay",
+        "schedule",
+        "weeklyTimetable",
+        "attendanceOverall",
+        "loading",
+        "error",
+        "viewMode",
+        "isDesktop"
+      ],
+      "buttons": [
+        "setSelectedDay(day.num)}\n                        className={`flex-shrink-0 flex flex-col items-center px-4 py-2 rounded-xl transition-all ${selectedDay === day.num\n                            ? 'bg-accent-teal text-white shadow-lg shadow-accent-teal/20'\n                            : day.num === today\n                                ? 'bg-accent-teal/10 text-accent-teal border border-accent-teal/30'\n                                : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'\n                            }`}\n                    >\n                        {day.short}\n                        {day.num === today && selectedDay !== day.num && (\n                            \n                        )}",
+        "setViewMode('timeline')}\n                            className={`px-3 py-1 rounded-md text-sm transition-colors ${viewMode === 'timeline'\n                                ? 'bg-accent-teal text-white'\n                                : 'text-text-secondary hover:text-text-primary'\n                                }`}\n                        >\n                            Timeline",
+        "setViewMode('list')}\n                            className={`px-3 py-1 rounded-md text-sm transition-colors ${viewMode === 'list'\n                                ? 'bg-accent-teal text-white'\n                                : 'text-text-secondary hover:text-text-primary'\n                                }`}\n                        >\n                            List",
+        "Try Again",
+        "navigate('/notifications')}\n                            className=\"relative p-2 text-text-secondary hover:text-accent-teal transition-colors\"\n                            title=\"Notifications\"\n                        >\n                            \n                                \n                            \n                            {/* Unread badge will be added here later */}"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "Notifications.tsx": {
+      "states": [
+        "notifications",
+        "isLoading",
+        "filter"
+      ],
+      "buttons": [
+        "setFilter('all')}\n                        className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${\n                            filter === 'all'\n                                ? 'bg-accent-teal text-white'\n                                : 'bg-bg-secondary text-text-secondary'\n                        }`}\n                    >\n                        All ({notifications.length})",
+        "setFilter('unread')}\n                        className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${\n                            filter === 'unread'\n                                ? 'bg-accent-teal text-white'\n                                : 'bg-bg-secondary text-text-secondary'\n                        }`}\n                    >\n                        Unread ({unreadCount})",
+        "Mark all as read"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "Profile.tsx": {
+      "states": [
+        "profile",
+        "loading",
+        "error"
+      ],
+      "buttons": [
+        "Try Again",
+        "Sign Out"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "Marks.tsx": {
+      "states": [
+        "subjects",
+        "loading",
+        "error",
+        "selectedSubject",
+        "subjectDetail",
+        "detailLoading"
+      ],
+      "buttons": [
+        "Try Again"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "Groups.tsx": {
+      "states": [
+        "groups",
+        "loading",
+        "messages",
+        "loading",
+        "newMessage",
+        "sending",
+        "selectedGroup"
+      ],
+      "buttons": [
+        "{sending ? (\n                            \n                        ) : (\n                            \n                                \n                            \n                        )}"
+      ],
+      "links": [],
+      "inputs": []
+    }
+  },
+  "professor-portal": {
+    "LoginPage.tsx": {
+      "states": [
+        "email",
+        "password",
+        "showPassword",
+        "remember",
+        "error",
+        "isSubmitting"
+      ],
+      "buttons": [
+        "setShowPassword(!showPassword)}\n                                    className=\"absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary\"\n                                >\n                                    {showPassword ?  : }",
+        "Forgot password?",
+        "{isLoading ? 'Signing in...' : 'Sign In'}"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "Attendance.tsx": {
+      "states": [
+        "classes",
+        "loading",
+        "students",
+        "loading",
+        "currentPage",
+        "totalPages",
+        "totalStudents",
+        "attendance",
+        "studentInfo",
+        "loading",
+        "statsData",
+        "activeTab",
+        "step",
+        "selectedClass",
+        "attendanceDate",
+        "records",
+        "submitting",
+        "success"
+      ],
+      "buttons": [
+        "setActiveTab('sessions')}\n                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'sessions'\n                        ? 'bg-primary text-white'\n                        : 'bg-bg-tertiary text-text-secondary hover:bg-bg-secondary'\n                        }`}\n                >\n                    Sessions ({statsData.sessions.length})",
+        "setStatus(student.student_id, 'present')}\n                                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${status === 'present'\n                                                ? 'bg-success text-white'\n                                                : 'bg-white/5 text-text-secondary hover:bg-success/20'\n                                                }`}\n                                        >\n                                            P",
+        "setStatus(student.student_id, 'absent')}\n                                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${status === 'absent'\n                                                ? 'bg-error text-white'\n                                                : 'bg-white/5 text-text-secondary hover:bg-error/20'\n                                                }`}\n                                        >\n                                            A",
+        "setStatus(student.student_id, 'late')}\n                                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${status === 'late'\n                                                ? 'bg-warning text-white'\n                                                : 'bg-white/5 text-text-secondary hover:bg-warning/20'\n                                                }`}\n                                        >\n                                            L",
+        "{\n                                    e.stopPropagation();\n                                    onViewStats(cls);\n                                }}\n                                className=\"p-2 rounded-lg bg-bg-tertiary hover:bg-primary/20 text-text-muted hover:text-primary transition-colors\"\n                                title=\"View History & Stats\"\n                            >",
+        "setActiveTab('students')}\n                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'students'\n                        ? 'bg-primary text-white'\n                        : 'bg-bg-tertiary text-text-secondary hover:bg-bg-secondary'\n                        }`}\n                >\n                    Students ({statsData.students.length})"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "Home.tsx": {
+      "states": [
+        "visibleDays",
+        "selectedDay",
+        "schedule",
+        "weeklyTimetable",
+        "loading",
+        "error",
+        "viewMode",
+        "selectedCR",
+        "isDesktop"
+      ],
+      "buttons": [
+        "setViewMode('timeline')}\n                            className={`px-3 py-1 rounded-md text-sm transition-colors ${viewMode === 'timeline'\n                                ? 'bg-primary text-white'\n                                : 'text-text-secondary hover:text-text-primary'\n                                }`}\n                        >\n                            Timeline",
+        "setViewMode('list')}\n                            className={`px-3 py-1 rounded-md text-sm transition-colors ${viewMode === 'list'\n                                ? 'bg-primary text-white'\n                                : 'text-text-secondary hover:text-text-primary'\n                                }`}\n                        >\n                            List",
+        "{ e.stopPropagation(); onContactCR(); }}\n                            className=\"p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors\"\n                            title={`Contact CR: ${cls.cr.name}`}\n                        >",
+        "onTakeAttendance(cls)}\n                                        className=\"p-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20\"\n                                    >",
+        "onContactCR(cls)}\n                                            className=\"p-1.5 rounded-md bg-white/5 text-text-secondary hover:text-primary\"\n                                        >",
+        "Take Attendance"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "Profile.tsx": {
+      "states": [
+        "profile",
+        "stats",
+        "loading",
+        "showLogoutConfirm"
+      ],
+      "buttons": [
+        "{icon}\n            {label}"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "Marks.tsx": {
+      "states": [
+        "classes",
+        "loading",
+        "components",
+        "loading",
+        "showAddModal",
+        "newComponent",
+        "adding",
+        "students",
+        "loading",
+        "saving",
+        "step",
+        "selectedClass",
+        "selectedComponent"
+      ],
+      "buttons": [],
+      "links": [],
+      "inputs": []
+    },
+    "Groups.tsx": {
+      "states": [
+        "groups",
+        "crs",
+        "loading",
+        "activeTab",
+        "messages",
+        "loading",
+        "newMessage",
+        "sending",
+        "selectedGroup",
+        "selectedCR"
+      ],
+      "buttons": [
+        "setActiveTab('groups')}\n                    className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'groups'\n                        ? 'bg-primary text-white'\n                        : 'text-text-secondary hover:text-text-primary'\n                        }`}\n                >\n                    Groups",
+        "Close",
+        "{sending ? (\n                            \n                        ) : (\n                            \n                                \n                            \n                        )}",
+        "setActiveTab('crs')}\n                    className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'crs'\n                        ? 'bg-primary text-white'\n                        : 'text-text-secondary hover:text-text-primary'\n                        }`}\n                >\n                    Class CRs"
+      ],
+      "links": [],
+      "inputs": []
+    }
+  },
+  "admin-portal": {
+    "BatchDetail.tsx": {
+      "states": [
+        "batch",
+        "courses",
+        "branchesByCourse",
+        "classesByBranch",
+        "expandedCourses",
+        "allCourses",
+        "allBranches",
+        "loading",
+        "isLinkCourseModalOpen",
+        "isLinkBranchModalOpen",
+        "isCreateBranchModalOpen",
+        "isCreateClassModalOpen",
+        "selectedCourseId",
+        "targetBranchId",
+        "classLabel",
+        "createBranchData",
+        "submitting",
+        "successMessage",
+        "errorMessage"
+      ],
+      "buttons": [
+        "{ e.stopPropagation(); setIsCreateBranchModalOpen(true); setCreateBranchData({ ...createBranchData, course_id: course.id }); }}\n                                        className=\"flex items-center gap-1.5 px-3 py-1.5 text-xs bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors border border-primary/20\"\n                                    >\n                                        \n                                        Add Branch",
+        "setIsCreateClassModalOpen(false)}>",
+        "{submitting ?  : 'Link Course'}",
+        "setIsLinkCourseModalOpen(true)}\n                            className=\"flex items-center gap-2 px-3 py-2 text-sm border border-secondary/30 text-secondary hover:bg-secondary/10 rounded-lg transition-colors\"\n                        >\n                            \n                            Link Course",
+        "setIsLinkCourseModalOpen(false)}>",
+        "openCreateClassModal(branch.id, e)}\n                                                            className=\"text-xs bg-white/5 hover:bg-white/10 text-text-secondary hover:text-primary border border-white/10 px-2 py-1 rounded flex items-center gap-1 transition-colors\"\n                                                        >\n                                                            \n                                                            Class",
+        "setIsLinkCourseModalOpen(true)}\n                            className=\"inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-secondary to-primary text-white rounded-lg\"\n                        >\n                            \n                            Link Course",
+        "setIsCreateBranchModalOpen(false)}>",
+        "{submitting ?  : 'Create & Link'}",
+        "setErrorMessage('')} className=\"ml-auto\">",
+        "{submitting ?  : 'Create Class'}"
+      ],
+      "links": [
+        [
+          "/batches",
+          "Batches"
+        ]
+      ],
+      "inputs": []
+    },
+    "Students.tsx": {
+      "states": [
+        "students",
+        "batches",
+        "",
+        "loading",
+        "searchQuery",
+        "filterBatch",
+        "filterStatus",
+        "currentPage",
+        "totalCount",
+        "isModalOpen",
+        "editingStudent",
+        "formData",
+        "formErrors",
+        "submitting",
+        "successMessage",
+        "errorMessage"
+      ],
+      "buttons": [
+        "{\n                                    setIsModalOpen(false);\n                                    resetForm();\n                                }}\n                                className=\"p-2 text-text-secondary hover:text-text-primary\"\n                            >",
+        "{\n                                        setIsModalOpen(false);\n                                        resetForm();\n                                    }}\n                                    className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5 transition-colors\"\n                                >\n                                    Cancel",
+        "openEditModal(student)}\n                                                    className=\"p-2 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-colors\"\n                                                    title=\"Edit\"\n                                                >",
+        "setCurrentPage((p) => Math.max(1, p - 1))}\n                                disabled={currentPage === 1}\n                                className=\"p-2 text-text-secondary hover:text-text-primary disabled:opacity-50 disabled:cursor-not-allowed\"\n                            >",
+        "{submitting && }\n                                    {editingStudent ? 'Update' : 'Register Student'}",
+        "{\n                        resetForm();\n                        setIsModalOpen(true);\n                    }}\n                    className=\"flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-accent-teal to-primary text-white font-semibold rounded-lg shadow-glow-blue hover:-translate-y-0.5 transition-all\"\n                >\n                    \n                    Register Student",
+        "setErrorMessage('')} className=\"ml-auto\">",
+        "handleDelete(student)}\n                                                    className=\"p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors\"\n                                                    title=\"Delete\"\n                                                >",
+        "setCurrentPage((p) => Math.min(totalPages, p + 1))}\n                                disabled={currentPage === totalPages}\n                                className=\"p-2 text-text-secondary hover:text-text-primary disabled:opacity-50 disabled:cursor-not-allowed\"\n                            >"
+      ],
+      "links": [],
+      "inputs": [
+        [
+          "text",
+          "Search by name, roll number, or email..."
+        ]
+      ]
+    },
+    "ClassManagement.tsx": {
+      "states": [
+        "students",
+        "allStudents",
+        "allClasses",
+        "loading",
+        "searchQuery",
+        "isAddModalOpen",
+        "isTransferModalOpen",
+        "isEditModalOpen",
+        "selectedStudent",
+        "transferStudent",
+        "editingStudent",
+        "editForm",
+        "selectedClass",
+        "transferReason",
+        "submitting",
+        "subjects",
+        "allSubjects",
+        "allProfessors",
+        "loading",
+        "isAddModalOpen",
+        "isProfessorModalOpen",
+        "selectedSubject",
+        "selectedClassSubject",
+        "selectedProfessor",
+        "submitting",
+        "classSubjects",
+        "timetableSlots",
+        "draggedSubject",
+        "loading",
+        "isSaving",
+        "message",
+        "students",
+        "selectedStudent",
+        "saving",
+        "professors",
+        "selectedProfessor",
+        "saving",
+        "classInfo",
+        "activeTab",
+        "loading",
+        "successMessage",
+        "errorMessage"
+      ],
+      "buttons": [
+        "setIsAddModalOpen(false)}\n                                    className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\"\n                                >\n                                    Cancel",
+        "{submitting && }\n                                    Transfer",
+        "{saving && }\n                        Update In-Charge",
+        "setIsTransferModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "handleRemoveSlot(day, period.number as number)}\n                                                                className=\"absolute -top-2 -right-2 w-5 h-5 bg-error text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10\"\n                                                            >",
+        "handleRemoveStudent(student)}\n                                                className=\"p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-lg\"\n                                                title=\"Remove from class\"\n                                            >",
+        "setIsAddModalOpen(true)}\n                    className=\"flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-accent-teal to-primary text-white font-semibold rounded-lg\"\n                >\n                    \n                    Add Student",
+        "setIsTransferModalOpen(false)}\n                                    className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\"\n                                >\n                                    Cancel",
+        "{submitting && }\n                                    Add Subject",
+        "{saving && }\n                        Update CR",
+        "setIsAddModalOpen(true)}\n                            className=\"inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg\"\n                        >\n                            \n                            Add Subject",
+        "setIsEditModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "setIsProfessorModalOpen(false)}\n                                    className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\"\n                                >\n                                    Cancel",
+        "setActiveTab(tab.id)}\n                                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${activeTab === tab.id\n                                    ? 'border-primary text-primary'\n                                    : 'border-transparent text-text-secondary hover:text-text-primary'\n                                    }`}\n                            >\n                                \n                                {tab.label}",
+        "setIsAddModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "{submitting && }\n                                    Add Student",
+        "navigate('/batches')} className=\"mt-4 text-primary hover:underline\">\n                    Go to Batches",
+        "setIsProfessorModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "openProfessorModal(subject)}\n                                                className=\"px-3 py-1.5 text-sm bg-secondary/10 text-secondary rounded-lg hover:bg-secondary/20 transition-colors\"\n                                            >\n                                                {subject.professor_id ? 'Change' : 'Assign'} Professor",
+        "setIsEditModalOpen(false)}\n                                    className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\"\n                                >\n                                    Cancel",
+        "setIsAddModalOpen(true)}\n                    className=\"flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg\"\n                >\n                    \n                    Add Subject",
+        "Edit Class",
+        "{submitting && }\n                                    {selectedProfessor ? 'Assign Professor' : 'Remove Assignment'}",
+        "openEditModal(student)}\n                                                className=\"p-2 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-lg\"\n                                                title=\"Edit student\"\n                                            >",
+        "{isSaving ? 'Saving...' : 'Save Timetable'}",
+        "Remove CR",
+        "{submitting && }\n                                    Save Changes",
+        "openTransferModal(student)}\n                                                className=\"p-2 text-text-secondary hover:text-secondary hover:bg-secondary/10 rounded-lg\"\n                                                title=\"Transfer to another class\"\n                                            >",
+        "navigate(-1)}\n                        className=\"p-2 text-text-secondary hover:text-text-primary hover:bg-white/5 rounded-lg\"\n                    >",
+        "setErrorMessage('')} className=\"ml-auto\">",
+        "Remove"
+      ],
+      "links": [
+        [
+          "/batches",
+          "Batches"
+        ]
+      ],
+      "inputs": [
+        [
+          "text",
+          "Search students..."
+        ]
+      ]
+    },
+    "CourseBatchBranches.tsx": {
+      "states": [
+        "course",
+        "batch",
+        "allBranches",
+        "linkedBranches",
+        "classes",
+        "loading",
+        "isCreateBranchModalOpen",
+        "isLinkBranchModalOpen",
+        "isCreateClassModalOpen",
+        "selectedBranchId",
+        "branchFormData",
+        "classLabel",
+        "submitting",
+        "successMessage",
+        "errorMessage"
+      ],
+      "buttons": [
+        "{submitting && }\n                                    Create Class",
+        "navigate(`/courses/${courseId}`)}\n                        className=\"p-2 text-text-secondary hover:text-text-primary hover:bg-white/5 rounded-lg\"\n                    >",
+        "{submitting && }\n                                    Link Branch",
+        "setIsCreateBranchModalOpen(true)}\n                                className=\"inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-secondary to-primary text-white rounded-lg\"\n                            >\n                                \n                                Create Branch",
+        "setIsCreateBranchModalOpen(true)}\n                        className=\"flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg\"\n                    >\n                        \n                        Create Branch",
+        "{submitting && }\n                                    Create Branch",
+        "setIsCreateClassModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "setIsCreateBranchModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "setIsLinkBranchModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "setIsLinkBranchModalOpen(true)}\n                        className=\"flex items-center gap-2 px-4 py-2.5 border border-primary text-primary font-semibold rounded-lg hover:bg-primary/10\"\n                    >\n                        \n                        Link Branch",
+        "setIsLinkBranchModalOpen(true)}\n                                className=\"inline-flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/10\"\n                            >\n                                \n                                Link Branch",
+        "{\n                                            setIsLinkBranchModalOpen(false);\n                                            setIsCreateBranchModalOpen(true);\n                                        }}\n                                        className=\"ml-1 underline hover:no-underline\"\n                                    >\n                                        Create a new branch",
+        "setIsLinkBranchModalOpen(false)}\n                                    className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\"\n                                >\n                                    Cancel",
+        "setIsCreateBranchModalOpen(false)}\n                                    className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\"\n                                >\n                                    Cancel",
+        "setErrorMessage('')} className=\"ml-auto\">",
+        "setIsCreateClassModalOpen(false)}\n                                    className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\"\n                                >\n                                    Cancel",
+        "{\n                                            setSelectedBranchId(branch.id);\n                                            setClassLabel(generateClassLabel(branch.id));\n                                            setIsCreateClassModalOpen(true);\n                                        }}\n                                        className=\"flex items-center gap-1 px-3 py-1.5 text-sm text-primary border border-primary/30 rounded-lg hover:bg-primary/10\"\n                                    >\n                                        \n                                        Add Class",
+        "navigate('/courses')} className=\"mt-4 text-primary hover:underline\">\n                    Go back to Courses"
+      ],
+      "links": [
+        [
+          "/courses",
+          "Courses"
+        ]
+      ],
+      "inputs": []
+    },
+    "Batches.tsx": {
+      "states": [
+        "batches",
+        "loading",
+        "isModalOpen",
+        "formData",
+        "submitting",
+        "successMessage",
+        "errorMessage"
+      ],
+      "buttons": [
+        "setIsModalOpen(true)}\n                    className=\"flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg shadow-glow-indigo hover:-translate-y-0.5 transition-all\"\n                >\n                    \n                    Create Batch",
+        "setIsModalOpen(false)}\n                                    className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\"\n                                >\n                                    Cancel",
+        "{submitting && }\n                                    Create Batch",
+        "setIsModalOpen(true)}\n                        className=\"inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg\"\n                    >\n                        \n                        Create Batch",
+        "setIsModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "setErrorMessage('')} className=\"ml-auto\">"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "Dashboard.tsx": {
+      "states": [
+        "stats",
+        "recentActivity",
+        "loading"
+      ],
+      "buttons": [
+        "navigate('/students/new')}\n                        className=\"hidden sm:flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg shadow-glow-indigo hover:-translate-y-0.5 hover:shadow-elevated transition-all duration-200\"\n                    >\n                        \n                        Add New",
+        "View All",
+        "{label}\n                Click to create",
+        "navigate('/notifications')}\n                        className=\"flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-accent-teal to-primary text-white font-semibold rounded-lg shadow-glow-teal hover:-translate-y-0.5 hover:shadow-elevated transition-all duration-200\"\n                    >\n                        \n                        Send Notification"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "Timetables.tsx": {
+      "states": [
+        "classes",
+        "selectedClass",
+        "classSubjects",
+        "timetableSlots",
+        "draggedSubject",
+        "isLoading",
+        "isSaving",
+        "message"
+      ],
+      "buttons": [
+        "{isSaving ? 'Saving...' : 'Save Timetable'}",
+        "handleRemoveSlot(day, period.number)}\n                                                                        className=\"absolute -top-2 -right-2 w-5 h-5 bg-error text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity\"\n                                                                    >"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "Courses.tsx": {
+      "states": [
+        "courses",
+        "loading",
+        "searchQuery",
+        "filterStatus",
+        "isModalOpen",
+        "isEditModalOpen",
+        "editingCourse",
+        "formData",
+        "submitting",
+        "successMessage",
+        "errorMessage"
+      ],
+      "buttons": [
+        "setIsEditModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "setIsModalOpen(true)}\n                    className=\"flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg\"\n                >\n                    \n                    Add Course",
+        "{submitting && }\n                                    Create Course",
+        "setIsModalOpen(false)} className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\">\n                                    Cancel",
+        "setIsModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "{submitting && }\n                                    Save Changes",
+        "{ e.stopPropagation(); openEditModal(course); }}\n                                        className=\"p-1.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity\"\n                                    >",
+        "setIsEditModalOpen(false)} className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\">\n                                    Cancel",
+        "setErrorMessage('')} className=\"ml-auto\">",
+        "navigate(`/courses/${course.id}`)}\n                                className=\"w-full mt-4 px-4 py-2 text-sm text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-colors\"\n                            >\n                                View Batches & Classes",
+        "setIsModalOpen(true)}\n                            className=\"inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-secondary to-primary text-white rounded-lg\"\n                        >\n                            \n                            Add Course"
+      ],
+      "links": [],
+      "inputs": [
+        [
+          "text",
+          "Search courses..."
+        ]
+      ]
+    },
+    "Sections.tsx": {
+      "states": [
+        "batch",
+        "course",
+        "branch",
+        "classes",
+        "loading",
+        "isModalOpen",
+        "formData",
+        "submitting",
+        "successMessage",
+        "errorMessage"
+      ],
+      "buttons": [
+        "setIsModalOpen(true)}\n                    className=\"flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-accent-teal to-primary text-white font-semibold rounded-lg\"\n                >\n                    \n                    Add Section",
+        "setIsModalOpen(false)} className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\">\n                                    Cancel",
+        "setIsModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "navigate(`/batches/${batchId}/courses/${courseId}`)}\n                        className=\"p-2 text-text-secondary hover:text-text-primary hover:bg-white/5 rounded-lg\"\n                    >",
+        "setIsModalOpen(true)}\n                        className=\"inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-accent-teal to-primary text-white rounded-lg\"\n                    >\n                        \n                        Add Section",
+        "setErrorMessage('')} className=\"ml-auto\">",
+        "{submitting && }\n                                    Create"
+      ],
+      "links": [
+        [
+          "/batches",
+          "Batches"
+        ]
+      ],
+      "inputs": []
+    },
+    "Notifications.tsx": {
+      "states": [
+        "classes",
+        "students",
+        "sendType",
+        "selectedClass",
+        "selectedStudents",
+        "title",
+        "message",
+        "notificationType",
+        "isSending",
+        "statusMessage"
+      ],
+      "buttons": [
+        "{isSending ? 'Sending...' : 'Send Notification'}",
+        "setSendType('individual')}\n                            className={`flex-1 p-4 rounded-lg border-2 transition-all ${\n                                sendType === 'individual'\n                                    ? 'border-primary bg-primary/10 text-primary'\n                                    : 'border-border bg-bg-secondary text-text-secondary hover:border-primary/50'\n                            }`}\n                        >\n                            \n                            Individual Students",
+        "setSendType('class')}\n                            className={`flex-1 p-4 rounded-lg border-2 transition-all ${\n                                sendType === 'class'\n                                    ? 'border-primary bg-primary/10 text-primary'\n                                    : 'border-border bg-bg-secondary text-text-secondary hover:border-primary/50'\n                            }`}\n                        >\n                            \n                            Specific Class",
+        "setSendType('all')}\n                            className={`flex-1 p-4 rounded-lg border-2 transition-all ${\n                                sendType === 'all'\n                                    ? 'border-primary bg-primary/10 text-primary'\n                                    : 'border-border bg-bg-secondary text-text-secondary hover:border-primary/50'\n                            }`}\n                        >\n                            \n                            All Students"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "CourseBatches.tsx": {
+      "states": [
+        "course",
+        "branches",
+        "linkedBatches",
+        "allBatches",
+        "loading",
+        "isLinkModalOpen",
+        "selectedBatchId",
+        "submitting",
+        "successMessage",
+        "errorMessage"
+      ],
+      "buttons": [
+        "setIsLinkModalOpen(true)}\n                            className=\"inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-secondary to-primary text-white rounded-lg\"\n                        >\n                            \n                            Link Batch",
+        "setIsLinkModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "{submitting && }\n                                    Link Batch",
+        "setIsLinkModalOpen(true)}\n                        className=\"flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg\"\n                    >\n                        \n                        Link Batch",
+        "navigate(`/courses/${courseId}/branches`)}\n                        className=\"flex items-center gap-2 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\"\n                    >\n                        \n                        Manage Branches",
+        "setErrorMessage('')} className=\"ml-auto\">",
+        "setIsLinkModalOpen(false)}\n                                    className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\"\n                                >\n                                    Cancel",
+        "navigate('/courses')}\n                        className=\"p-2 text-text-secondary hover:text-text-primary hover:bg-white/5 rounded-lg\"\n                    >",
+        "navigate('/courses')} className=\"mt-4 text-primary hover:underline\">\n                    Go back to Courses"
+      ],
+      "links": [
+        [
+          "/courses",
+          "Courses"
+        ]
+      ],
+      "inputs": []
+    },
+    "StudentsPage.tsx": {
+      "states": [],
+      "buttons": [
+        "Add Student",
+        "More Filters"
+      ],
+      "links": [],
+      "inputs": [
+        [
+          "text",
+          "Search students..."
+        ]
+      ]
+    },
+    "CourseDetail.tsx": {
+      "states": [
+        "batch",
+        "course",
+        "allBranches",
+        "linkedBranches",
+        "loading",
+        "isCreateBranchModalOpen",
+        "isLinkBranchModalOpen",
+        "isEditModalOpen",
+        "selectedBranchId",
+        "branchFormData",
+        "editFormData",
+        "submitting",
+        "successMessage",
+        "errorMessage"
+      ],
+      "buttons": [
+        "setIsEditModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "setIsCreateBranchModalOpen(true)}\n                                className=\"inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-secondary to-primary text-white rounded-lg\"\n                            >\n                                \n                                Create Branch",
+        "setIsCreateBranchModalOpen(true)}\n                        className=\"flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg\"\n                    >\n                        \n                        Create Branch",
+        "setIsLinkBranchModalOpen(true)}\n                        className=\"flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/10\"\n                    >\n                        \n                        Link Branch",
+        "{submitting && }\n                                Link Branch",
+        "setIsCreateBranchModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "setIsLinkBranchModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "{\n                            setEditFormData({\n                                course_name: course.course_name,\n                                course_code: course.course_code,\n                                duration_years: course.duration_years,\n                                total_semesters: course.total_semesters,\n                            });\n                            setIsEditModalOpen(true);\n                        }}\n                        className=\"flex items-center gap-2 px-4 py-2 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\"\n                    >\n                        \n                        Edit Course",
+        "Save Changes",
+        "navigate(`/batches/${batchId}`)}\n                        className=\"p-2 text-text-secondary hover:text-text-primary hover:bg-white/5 rounded-lg\"\n                    >",
+        "setIsLinkBranchModalOpen(true)}\n                                className=\"inline-flex items-center gap-2 px-4 py-2 border border-primary/50 text-primary rounded-lg\"\n                            >\n                                \n                                Link Branch",
+        "setErrorMessage('')} className=\"ml-auto\">",
+        "{submitting && }\n                                Create & Link"
+      ],
+      "links": [
+        [
+          "/batches",
+          "Batches"
+        ]
+      ],
+      "inputs": []
+    },
+    "Professors.tsx": {
+      "states": [
+        "professors",
+        "departments",
+        "loading",
+        "searchQuery",
+        "filterDepartment",
+        "filterStatus",
+        "currentPage",
+        "totalCount",
+        "isModalOpen",
+        "editingProfessor",
+        "formData",
+        "formErrors",
+        "submitting",
+        "successMessage",
+        "errorMessage"
+      ],
+      "buttons": [
+        "{\n                                    setIsModalOpen(false);\n                                    resetForm();\n                                }}\n                                className=\"p-2 text-text-secondary hover:text-text-primary\"\n                            >",
+        "{\n                                        setIsModalOpen(false);\n                                        resetForm();\n                                    }}\n                                    className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5 transition-colors\"\n                                >\n                                    Cancel",
+        "setCurrentPage((p) => Math.max(1, p - 1))}\n                                disabled={currentPage === 1}\n                                className=\"p-2 text-text-secondary hover:text-text-primary disabled:opacity-50 disabled:cursor-not-allowed\"\n                            >",
+        "handleDelete(professor)}\n                                                    className=\"p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors\"\n                                                    title=\"Delete\"\n                                                >",
+        "setCurrentPage((p) => Math.min(totalPages, p + 1))}\n                                disabled={currentPage === totalPages}\n                                className=\"p-2 text-text-secondary hover:text-text-primary disabled:opacity-50 disabled:cursor-not-allowed\"\n                            >",
+        "setErrorMessage('')} className=\"ml-auto\">",
+        "{submitting && }\n                                    {editingProfessor ? 'Update' : 'Add Professor'}",
+        "openEditModal(professor)}\n                                                    className=\"p-2 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-colors\"\n                                                    title=\"Edit\"\n                                                >",
+        "{\n                        resetForm();\n                        setIsModalOpen(true);\n                    }}\n                    className=\"flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg shadow-glow-indigo hover:-translate-y-0.5 transition-all\"\n                >\n                    \n                    Add Professor"
+      ],
+      "links": [],
+      "inputs": [
+        [
+          "text",
+          "Search by name, email, or employee ID..."
+        ]
+      ]
+    },
+    "ProfessorsPage.tsx": {
+      "states": [],
+      "buttons": [
+        "Filters",
+        "Add Professor"
+      ],
+      "links": [],
+      "inputs": [
+        [
+          "text",
+          "Search professors..."
+        ]
+      ]
+    },
+    "CourseBranches.tsx": {
+      "states": [
+        "course",
+        "branches",
+        "loading",
+        "isModalOpen",
+        "isEditModalOpen",
+        "editingBranch",
+        "formData",
+        "submitting",
+        "successMessage",
+        "errorMessage"
+      ],
+      "buttons": [
+        "setIsEditModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "setIsModalOpen(false)} className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\">\n                                    Cancel",
+        "setIsModalOpen(false)} className=\"p-2 text-text-secondary hover:text-text-primary\">",
+        "setIsModalOpen(true)}\n                            className=\"inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-secondary to-primary text-white rounded-lg\"\n                        >\n                            \n                            Add Branch",
+        "{submitting && }\n                                    Add Branch",
+        "{submitting && }\n                                    Save Changes",
+        "setIsEditModalOpen(false)} className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\">\n                                    Cancel",
+        "setErrorMessage('')} className=\"ml-auto\">",
+        "openEditModal(branch)}\n                                            className=\"p-1.5 text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity\"\n                                        >",
+        "navigate('/courses')}\n                        className=\"p-2 text-text-secondary hover:text-text-primary hover:bg-white/5 rounded-lg\"\n                    >",
+        "setIsModalOpen(true)}\n                    className=\"flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-secondary to-primary text-white font-semibold rounded-lg\"\n                >\n                    \n                    Add Branch",
+        "navigate('/courses')} className=\"mt-4 text-primary hover:underline\">\n                    Go back to Courses"
+      ],
+      "links": [
+        [
+          "/courses",
+          "Courses"
+        ]
+      ],
+      "inputs": []
+    },
+    "NotFoundPage.tsx": {
+      "states": [],
+      "buttons": [],
+      "links": [
+        [
+          "/",
+          "Go Home"
+        ]
+      ],
+      "inputs": []
+    },
+    "DashboardPage.tsx": {
+      "states": [],
+      "buttons": [
+        "Upload Timetable",
+        "View Details \u2192",
+        "Add Professor",
+        "Add Student",
+        "Create Class"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "ClassesPage.tsx": {
+      "states": [],
+      "buttons": [
+        "Create Class"
+      ],
+      "links": [],
+      "inputs": []
+    },
+    "Subjects.tsx": {
+      "states": [
+        "subjects",
+        "loading",
+        "searchQuery",
+        "typeFilter",
+        "isModalOpen",
+        "editingSubject",
+        "submitting",
+        "successMessage",
+        "errorMessage",
+        "formData"
+      ],
+      "buttons": [
+        "Add Subject",
+        "setIsModalOpen(false)}\n                                    className=\"flex-1 px-4 py-2.5 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5\"\n                                >\n                                    Cancel",
+        "setIsModalOpen(false)}\n                                className=\"p-2 text-text-secondary hover:text-text-primary\"\n                            >",
+        "handleEdit(subject)}\n                                    className=\"flex-1 flex items-center justify-center gap-2 text-sm px-3 py-2 border border-white/10 text-text-secondary rounded-lg hover:bg-white/5 hover:text-primary\"\n                                >\n                                    \n                                    Edit",
+        "{submitting && }\n                                    {editingSubject ? 'Update Subject' : 'Create Subject'}",
+        "setErrorMessage('')} className=\"ml-auto\">",
+        "handleDelete(subject)}\n                                    className=\"flex-1 flex items-center justify-center gap-2 text-sm px-3 py-2 border border-white/10 text-text-secondary rounded-lg hover:bg-error/10 hover:text-error hover:border-error/30\"\n                                >\n                                    \n                                    Delete"
+      ],
+      "links": [],
+      "inputs": [
+        [
+          "text",
+          "Search by subject name or code..."
+        ]
+      ]
+    }
+  }
+}

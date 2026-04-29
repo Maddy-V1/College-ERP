@@ -3,7 +3,21 @@
 // ============================================
 
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+
+// ============================================
+// Query Client Setup
+// ============================================
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            staleTime: 1000 * 60 * 5, // 5 minutes
+            retry: 1,
+            refetchOnWindowFocus: false,
+        },
+    },
+});
 
 // Pages
 import LoginPage from './pages/auth/LoginPage';
@@ -65,57 +79,59 @@ function PlaceholderPage({ title }: { title: string }) {
 // ============================================
 function App() {
     return (
-        <BrowserRouter>
-            <AuthProvider>
-                <Routes>
-                    {/* Public routes */}
-                    <Route path="/login" element={<LoginPage />} />
+        <QueryClientProvider client={queryClient}>
+            <BrowserRouter>
+                <AuthProvider>
+                    <Routes>
+                        {/* Public routes */}
+                        <Route path="/login" element={<LoginPage />} />
 
-                    {/* Protected routes with Layout */}
-                    <Route
-                        path="/"
-                        element={
-                            <ProtectedRoute>
-                                <Layout />
-                            </ProtectedRoute>
-                        }
-                    >
-                        <Route index element={<Navigate to="/dashboard" replace />} />
-                        <Route path="dashboard" element={<Dashboard />} />
+                        {/* Protected routes with Layout */}
+                        <Route
+                            path="/"
+                            element={
+                                <ProtectedRoute>
+                                    <Layout />
+                                </ProtectedRoute>
+                            }
+                        >
+                            <Route index element={<Navigate to="/dashboard" replace />} />
+                            <Route path="dashboard" element={<Dashboard />} />
 
-                        {/* User Management */}
-                        <Route path="students" element={<Students />} />
-                        <Route path="students/new" element={<Students />} />
-                        <Route path="professors" element={<Professors />} />
-                        <Route path="professors/new" element={<Professors />} />
+                            {/* User Management */}
+                            <Route path="students" element={<Students />} />
+                            <Route path="students/new" element={<Students />} />
+                            <Route path="professors" element={<Professors />} />
+                            <Route path="professors/new" element={<Professors />} />
 
-                        {/* Academic Structure - Batch to Class Flow */}
-                        <Route path="batches" element={<Batches />} />
-                        <Route path="batches/:batchId" element={<BatchDetail />} />
-                        <Route path="batches/:batchId/courses/:courseId" element={<CourseDetail />} />
-                        <Route path="batches/:batchId/courses/:courseId/branches/:branchId/sections" element={<Sections />} />
+                            {/* Academic Structure - Batch to Class Flow */}
+                            <Route path="batches" element={<Batches />} />
+                            <Route path="batches/:batchId" element={<BatchDetail />} />
+                            <Route path="batches/:batchId/courses/:courseId" element={<CourseDetail />} />
+                            <Route path="batches/:batchId/courses/:courseId/branches/:branchId/sections" element={<Sections />} />
 
-                        {/* Class Management */}
-                        <Route path="classes" element={<ClassManagement />} />
-                        <Route path="classes/:classId" element={<ClassManagement />} />
+                            {/* Class Management */}
+                            <Route path="classes" element={<ClassManagement />} />
+                            <Route path="classes/:classId" element={<ClassManagement />} />
 
-                        {/* Other pages */}
-                        {/* Courses Management - Course → Batches → Branches/Classes */}
-                        <Route path="courses" element={<Courses />} />
-                        <Route path="courses/:courseId" element={<CourseBatches />} />
-                        <Route path="courses/:courseId/branches" element={<CourseBranches />} />
-                        <Route path="courses/:courseId/batches/:batchId" element={<CourseBatchBranches />} />
+                            {/* Other pages */}
+                            {/* Courses Management - Course → Batches → Branches/Classes */}
+                            <Route path="courses" element={<Courses />} />
+                            <Route path="courses/:courseId" element={<CourseBatches />} />
+                            <Route path="courses/:courseId/branches" element={<CourseBranches />} />
+                            <Route path="courses/:courseId/batches/:batchId" element={<CourseBatchBranches />} />
 
-                        <Route path="subjects" element={<Subjects />} />
-                        <Route path="notifications" element={<Notifications />} />
-                        <Route path="settings" element={<PlaceholderPage title="Settings" />} />
-                    </Route>
+                            <Route path="subjects" element={<Subjects />} />
+                            <Route path="notifications" element={<Notifications />} />
+                            <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+                        </Route>
 
-                    {/* 404 */}
-                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                </Routes>
-            </AuthProvider>
-        </BrowserRouter>
+                        {/* 404 */}
+                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                    </Routes>
+                </AuthProvider>
+            </BrowserRouter>
+        </QueryClientProvider>
     );
 }
 
